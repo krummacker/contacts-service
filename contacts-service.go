@@ -23,6 +23,9 @@ type Contact struct {
 var db *gorm.DB
 var err error
 
+// constant for an unset date
+var epoch time.Time
+
 func main() {
 	setupORMapper()
 	db.AutoMigrate(&Contact{}) // Define database schema.
@@ -85,13 +88,15 @@ func populateDatabase() {
 //
 // Example API calls:
 // > curl http://localhost:8080/contacts
-// > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst"}'
+// > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst", "Phone": "0815", "Birthday": "1974-11-29T00:00:00+00:00"}'
 // > curl http://localhost:8080/contacts/97
+// > curl http://localhost:8080/contacts/95 --include --header "Content-Type: application/json" --request "PUT" --data '{"Phone": "81970"}'
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
 	router.POST("/contacts", createContact)
 	router.GET("/contacts/:id", findContactByID)
+	router.PUT("/contacts/:id", updateContactByID)
 	router.Run("localhost:8080")
 }
 
@@ -104,24 +109,20 @@ func findAllContacts(c *gin.Context) {
 
 // createContact inserts the contact specified in the request's JSON into the
 // database. It responds with the full contact data including the newly
-// assigned ID.
+// assigned id.
 func createContact(c *gin.Context) {
-
 	var newContact Contact
-
-	// Bind the received JSON to newContact.
 	if err := c.BindJSON(&newContact); err != nil {
 		// Bad request
 		fmt.Println(err)
 		return
 	}
-
 	db.Create(&newContact)
 	c.IndentedJSON(http.StatusCreated, newContact)
 }
 
 // findContactByID locates the contact whose ID value matches the id parameter
-// sent by the client, then returns that contact as a response.
+// of the request URL, then returns that contact as a response.
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contact Contact
@@ -132,4 +133,39 @@ func findContactByID(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusOK, contact)
 	}
+}
+
+// updateContactByID updates the contact whose ID value matches the id
+// parameter of the request URL, updates the values specified in the JSON (and
+// only those), and finally responds with the new version of the contact.
+func updateContactByID(c *gin.Context) {
+	id := c.Param("id")
+
+	var found Contact
+	var count int64
+	db.First(&found, id).Count(&count)
+	if count == 0 {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
+		return
+	}
+
+	var submitted Contact
+	if err := c.BindJSON(&submitted); err != nil {
+		// Bad request
+		fmt.Println(err)
+		return
+	}
+
+	if len(submitted.Name) > 0 {
+		found.Name = submitted.Name
+	}
+	if len(submitted.Phone) > 0 {
+		found.Phone = submitted.Phone
+	}
+	if submitted.Birthday != epoch {
+		found.Birthday = submitted.Birthday
+	}
+
+	db.Save(&found)
+	c.IndentedJSON(http.StatusCreated, found)
 }
