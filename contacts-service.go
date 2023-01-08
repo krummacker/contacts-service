@@ -82,9 +82,14 @@ func populateDatabase() {
 }
 
 // setupHttpRouter initializes the REST API router and registers all endpoints.
+//
+// Example API calls:
+// > curl http://localhost:8080/contacts
+// > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst"}'
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
+	router.POST("/contacts", createContact)
 	router.Run("localhost:8080")
 }
 
@@ -93,4 +98,22 @@ func findAllContacts(c *gin.Context) {
 	var contacts []Contact
 	db.Find(&contacts)
 	c.IndentedJSON(http.StatusOK, contacts)
+}
+
+// createContact inserts the contact specified in the request's JSON into the
+// database. It responds with the full contact data including the newly
+// assigned ID.
+func createContact(c *gin.Context) {
+
+	var newContact Contact
+
+	// Bind the received JSON to newContact.
+	if err := c.BindJSON(&newContact); err != nil {
+		// Bad request
+		fmt.Println(err)
+		return
+	}
+
+	db.Create(&newContact)
+	c.IndentedJSON(http.StatusCreated, newContact)
 }
