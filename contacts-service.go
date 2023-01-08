@@ -86,10 +86,12 @@ func populateDatabase() {
 // Example API calls:
 // > curl http://localhost:8080/contacts
 // > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst"}'
+// > curl http://localhost:8080/contacts/97
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
 	router.POST("/contacts", createContact)
+	router.GET("/contacts/:id", findContactByID)
 	router.Run("localhost:8080")
 }
 
@@ -116,4 +118,18 @@ func createContact(c *gin.Context) {
 
 	db.Create(&newContact)
 	c.IndentedJSON(http.StatusCreated, newContact)
+}
+
+// findContactByID locates the contact whose ID value matches the id parameter
+// sent by the client, then returns that contact as a response.
+func findContactByID(c *gin.Context) {
+	id := c.Param("id")
+	var contact Contact
+	var count int64
+	db.First(&contact, id).Count(&count)
+	if count == 0 {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
+	} else {
+		c.IndentedJSON(http.StatusOK, contact)
+	}
 }
