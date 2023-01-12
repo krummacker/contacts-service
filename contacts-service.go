@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -38,12 +38,12 @@ func main() {
 // environment variables.
 //
 // Usage example:
-// > export HOST=localhost && export DBUSER=postgres && export DBPASSWORD=Hztju8zgf
+// > export HOST=localhost && export DBUSER=dirk && export DBPASSWORD=bullo92
 // > go run contacts-service.go
 func setupORMapper() {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=postgres port=5432",
-		os.Getenv("HOST"), os.Getenv("DBUSER"), os.Getenv("DBPASSWORD"))
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?charset=utf8&parseTime=True&loc=Local",
+		os.Getenv("DBUSER"), os.Getenv("DBPASSWORD"), os.Getenv("HOST"))
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		fmt.Println(err)
 		panic("failed to connect to database")
@@ -89,8 +89,8 @@ func populateDatabase() {
 // Example API calls:
 // > curl http://localhost:8080/contacts
 // > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst", "Phone": "0815", "Birthday": "1974-11-29T00:00:00+00:00"}'
-// > curl http://localhost:8080/contacts/97
-// > curl http://localhost:8080/contacts/95 --include --header "Content-Type: application/json" --request "PUT" --data '{"Phone": "81970"}'
+// > curl http://localhost:8080/contacts/4
+// > curl http://localhost:8080/contacts/5 --include --header "Content-Type: application/json" --request "PUT" --data '{"Phone": "81970"}'
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
