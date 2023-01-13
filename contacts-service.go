@@ -98,7 +98,7 @@ func setupHttpRouter() {
 // findAllContacts responds with the list of all contacts as JSON.
 func findAllContacts(c *gin.Context) {
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT id, name, phone FROM contacts")
+	err := db.Select(&contacts, "SELECT * FROM contacts")
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -126,7 +126,7 @@ func createContact(c *gin.Context) {
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT id, name, phone FROM contacts WHERE id=?", id)
+	err := db.Select(&contacts, "SELECT * FROM contacts WHERE id=?", id)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -143,7 +143,7 @@ func findContactByID(c *gin.Context) {
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT id, name, phone FROM contacts WHERE id=?", id)
+	err := db.Select(&contacts, "SELECT * FROM contacts WHERE id=?", id)
 	if err != nil {
 		log.Panicln(err)
 	}
