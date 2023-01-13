@@ -1,9 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,15 +34,20 @@ func main() {
 }
 
 // setupORMapper initializes the object relational mapper and the database
-// connection. The connection parameters are taken from the system's
-// environment variables.
+// connection. The connection parameters are taken from the command line
+// parameters.
 //
 // Usage example:
-// > export HOST=localhost && export DBUSER=dirk && export DBPASSWORD=bullo92
-// > go run contacts-service.go
+// > go run contacts-service.go -host=localhost -dbuser=dirk -dbpwd=bullo92
 func setupORMapper() {
+
+	hostp := flag.String("host", "localhost", "the host name of the database")
+	dbuserp := flag.String("dbuser", "mysql", "the database user name")
+	dbpwdp := flag.String("dbpwd", "", "the password of the database user")
+	flag.Parse()
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?charset=utf8&parseTime=True&loc=Local",
-		os.Getenv("DBUSER"), os.Getenv("DBPASSWORD"), os.Getenv("HOST"))
+		*dbuserp, *dbpwdp, *hostp)
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		fmt.Println(err)
