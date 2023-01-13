@@ -1,4 +1,4 @@
-module dirk.krummacker/contacts-service
+module gitlab.com/dirk.krummacker/contacts-service
 
 go 1.19
 

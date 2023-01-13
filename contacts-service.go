@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -50,8 +51,7 @@ func setupORMapper() {
 		*dbuserp, *dbpwdp, *hostp)
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		fmt.Println(err)
-		panic("failed to connect to database")
+		log.Fatalln(err)
 	}
 }
 
@@ -119,8 +119,7 @@ func createContact(c *gin.Context) {
 	var newContact Contact
 	if err := c.BindJSON(&newContact); err != nil {
 		// Bad request
-		fmt.Println(err)
-		return
+		log.Panicln(err)
 	}
 	db.Create(&newContact)
 	c.IndentedJSON(http.StatusCreated, newContact)
@@ -157,8 +156,7 @@ func updateContactByID(c *gin.Context) {
 	var submitted Contact
 	if err := c.BindJSON(&submitted); err != nil {
 		// Bad request
-		fmt.Println(err)
-		return
+		log.Panicln(err)
 	}
 
 	if len(submitted.Name) > 0 {
