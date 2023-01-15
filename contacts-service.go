@@ -13,7 +13,7 @@ import (
 
 // Contact is the data structure for a person that we know.
 type Contact struct {
-	Id    int
+	Id    int64
 	Name  string
 	Phone string
 }
@@ -114,10 +114,15 @@ func createContact(c *gin.Context) {
 		// Bad request
 		log.Panicln(err)
 	}
-	_, err := db.NamedExec("INSERT INTO contacts (name, phone) VALUES (:name, :phone)", &newContact)
+	result, err := db.NamedExec("INSERT INTO contacts (name, phone) VALUES (:name, :phone)", &newContact)
 	if err != nil {
 		log.Panicln(err)
 	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		log.Panicln(err)
+	}
+	newContact.Id = id
 	c.IndentedJSON(http.StatusCreated, newContact)
 }
 
