@@ -83,7 +83,10 @@ func populateDatabase() {
 			log.Panicln(err)
 		}
 		if count == 0 {
-			db.NamedExec("INSERT INTO contacts (name, phone, birthday) VALUES (:name, :phone, :birthday)", &contact)
+			db.NamedExec(`
+				INSERT INTO contacts (name, phone, birthday)
+				VALUES (:name, :phone, :birthday);
+			`, &contact)
 		}
 	}
 }
@@ -130,7 +133,10 @@ func createContact(c *gin.Context) {
 		// Bad request
 		log.Panicln(err)
 	}
-	result, err := db.NamedExec("INSERT INTO contacts (name, phone, birthday) VALUES (:name, :phone, :birthday)", &newContact)
+	result, err := db.NamedExec(`
+		INSERT INTO contacts (name, phone, birthday)
+		VALUES (:name, :phone, :birthday);
+	`, &newContact)
 	if err != nil {
 		log.Panicln(err)
 	}
