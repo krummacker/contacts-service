@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -13,14 +14,18 @@ import (
 
 // Contact is the data structure for a person that we know.
 type Contact struct {
-	Id    int64
-	Name  string
-	Phone string
+	Id       int64
+	Name     string
+	Phone    string
+	Birthday time.Time
 }
 
 // db is a handle to the database.
 var db *sqlx.DB
 var err error
+
+// constant for an unset date
+var epoch time.Time
 
 func main() {
 	setupDatabase()
@@ -39,7 +44,7 @@ func setupDatabase() {
 	dbpwdp := flag.String("dbpwd", "", "the password of the database user")
 	flag.Parse()
 
-	dsn := fmt.Sprintf("%s:%s@/test", *dbuserp, *dbpwdp)
+	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", *dbuserp, *dbpwdp)
 	db, err = sqlx.Connect("mysql", dsn)
 	if err != nil {
 		log.Fatalln(err)
@@ -51,20 +56,24 @@ func setupDatabase() {
 func populateDatabase() {
 	initialContacts := []Contact{
 		{
-			Name:  "Dirk Krummacker",
-			Phone: "+420 123 456 789",
+			Name:     "Dirk Krummacker",
+			Phone:    "+420 123 456 789",
+			Birthday: time.Date(1974, time.November, 29, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			Name:  "Pavla Krummackerova",
-			Phone: "+420 023 454 244",
+			Name:     "Pavla Krummackerova",
+			Phone:    "+420 023 454 244",
+			Birthday: time.Date(1980, time.January, 27, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			Name:  "Adam Krummacker",
-			Phone: "+420 333 555 777",
+			Name:     "Adam Krummacker",
+			Phone:    "+420 333 555 777",
+			Birthday: time.Date(2009, time.March, 31, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			Name:  "David Krummacker",
-			Phone: "+420 333 555 777",
+			Name:     "David Krummacker",
+			Phone:    "+420 333 555 777",
+			Birthday: time.Date(2011, time.December, 11, 0, 0, 0, 0, time.UTC),
 		},
 	}
 	for _, contact := range initialContacts {
@@ -74,7 +83,7 @@ func populateDatabase() {
 			log.Panicln(err)
 		}
 		if count == 0 {
-			db.NamedExec("INSERT INTO contacts (name, phone) VALUES (:name, :phone)", &contact)
+			db.NamedExec("INSERT INTO contacts (name, phone, birthday) VALUES (:name, :phone, :birthday)", &contact)
 		}
 	}
 }
@@ -83,9 +92,10 @@ func populateDatabase() {
 //
 // Example API calls:
 // > curl http://localhost:8080/contacts
-// > curl http://localhost:8080/contacts --include --header "Content-Type: application/json" --request "POST" --data '{"Name": "Hans Wurst", "Phone": "0815"}'
-// > curl http://localhost:8080/contacts/4
-// > curl http://localhost:8080/contacts/5 --include --header "Content-Type: application/json" --request "PUT" --data '{"Phone": "81970"}'
+// > curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"Name": "Hans Wurst", "Phone": "0815", "Birthday": "1969-03-02T00:00:00+00:00"}'
+// > curl http://localhost:8080/contacts/56
+// > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Phone": "81970"}'
+// > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Birthday": "1972-06-06T00:00:00+00:00"}'
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
@@ -102,6 +112,9 @@ func findAllContacts(c *gin.Context) {
 	if err != nil {
 		log.Panicln(err)
 	}
+	if len(contacts) == 0 {
+		contacts = []Contact{}
+	}
 	c.IndentedJSON(http.StatusOK, contacts)
 }
 
@@ -114,7 +127,7 @@ func createContact(c *gin.Context) {
 		// Bad request
 		log.Panicln(err)
 	}
-	result, err := db.NamedExec("INSERT INTO contacts (name, phone) VALUES (:name, :phone)", &newContact)
+	result, err := db.NamedExec("INSERT INTO contacts (name, phone, birthday) VALUES (:name, :phone, :birthday)", &newContact)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -170,8 +183,11 @@ func updateContactByID(c *gin.Context) {
 	if len(submitted.Phone) > 0 {
 		found.Phone = submitted.Phone
 	}
+	if submitted.Birthday != epoch {
+		found.Birthday = submitted.Birthday
+	}
 
-	db.MustExec("UPDATE contacts SET name=?, phone=? WHERE id=?",
-		found.Name, found.Phone, id)
+	db.MustExec("UPDATE contacts SET name=?, phone=?, birthday=? WHERE id=?",
+		found.Name, found.Phone, found.Birthday, id)
 	c.IndentedJSON(http.StatusCreated, found)
 }
