@@ -96,12 +96,14 @@ func populateDatabase() {
 // > curl http://localhost:8080/contacts/56
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Phone": "81970"}'
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Birthday": "1972-06-06T00:00:00+00:00"}'
+// > curl http://localhost:8080/contacts/56 --request "DELETE"
 func setupHttpRouter() {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
 	router.POST("/contacts", createContact)
 	router.GET("/contacts/:id", findContactByID)
 	router.PUT("/contacts/:id", updateContactByID)
+	router.DELETE("/contacts/:id", deleteContactByID)
 	router.Run("localhost:8080")
 }
 
@@ -113,9 +115,10 @@ func findAllContacts(c *gin.Context) {
 		log.Panicln(err)
 	}
 	if len(contacts) == 0 {
-		contacts = []Contact{}
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
+	} else {
+		c.IndentedJSON(http.StatusOK, contacts)
 	}
-	c.IndentedJSON(http.StatusOK, contacts)
 }
 
 // createContact inserts the contact specified in the request's JSON into the
@@ -190,4 +193,20 @@ func updateContactByID(c *gin.Context) {
 	db.MustExec("UPDATE contacts SET name=?, phone=?, birthday=? WHERE id=?",
 		found.Name, found.Phone, found.Birthday, id)
 	c.IndentedJSON(http.StatusCreated, found)
+}
+
+// deleteContactByID deletes the contact whose ID value matches the id
+// parameter of the request URL from the database.
+func deleteContactByID(c *gin.Context) {
+	id := c.Param("id")
+	result := db.MustExec("DELETE FROM contacts WHERE id=?", id)
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Panicln(err)
+	}
+	if rowsAffected == 1 {
+		c.IndentedJSON(http.StatusOK, gin.H{"message": "contact deleted"})
+	} else {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
+	}
 }
