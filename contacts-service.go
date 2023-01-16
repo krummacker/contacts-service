@@ -22,7 +22,28 @@ type Contact struct {
 
 // db is a handle to the database.
 var db *sqlx.DB
-var err error
+
+// insert is a prepared statement for creating a contact on the database.
+var insert *sqlx.NamedStmt
+
+// countWhereName is a prepared statement for counting contacts with a given
+// name.
+var countWhereName *sqlx.Stmt
+
+// selectAll is a prepared statement for selecting all contacts.
+var selectAll *sqlx.Stmt
+
+// selectWhereId is a prepared statement for selecting contacts with a given
+// id.
+var selectWhereId *sqlx.Stmt
+
+// updateWhereId is a prepared statement for updating a contact with a given
+// id.
+var updateWhereId *sqlx.Stmt
+
+// deleteWhereId is a prepared statement for deleting a contact with a given
+// id.
+var deleteWhereId *sqlx.Stmt
 
 // constant for an unset date
 var epoch time.Time
@@ -33,8 +54,9 @@ func main() {
 	setupHttpRouter()
 }
 
-// setupDatabase initializes the database connection. The connection parameters
-// are taken from the command line parameters.
+// setupDatabase initializes the database connection and prepares all
+// statements. The connection parameters are taken from the command line
+// parameters.
 //
 // Usage example:
 // > go run contacts-service.go -dbuser=dirk -dbpwd=bullo92
@@ -45,9 +67,49 @@ func setupDatabase() {
 	flag.Parse()
 
 	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", *dbuserp, *dbpwdp)
+	var err error
 	db, err = sqlx.Connect("mysql", dsn)
 	if err != nil {
 		log.Fatalln(err)
+	}
+
+	// Prepared statements offer up to 25% speed increase if executed many times.
+	insert, err = db.PrepareNamed(`
+		INSERT INTO contacts (name, phone, birthday)
+		VALUES (:name, :phone, :birthday)
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	countWhereName, err = db.Preparex(`
+		SELECT COUNT(name) FROM contacts WHERE name=?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	selectAll, err = db.Preparex(`
+		SELECT * FROM contacts
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	selectWhereId, err = db.Preparex(`
+		SELECT * FROM contacts WHERE id=?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	updateWhereId, err = db.Preparex(`
+		UPDATE contacts SET name=?, phone=?, birthday=? WHERE id=?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	deleteWhereId, err = db.Preparex(`
+		DELETE FROM contacts WHERE id=?
+	`)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -78,15 +140,12 @@ func populateDatabase() {
 	}
 	for _, contact := range initialContacts {
 		var count int
-		err = db.Get(&count, "SELECT COUNT(*) FROM contacts WHERE name=?", contact.Name)
+		err := countWhereName.Get(&count, contact.Name)
 		if err != nil {
 			log.Panicln(err)
 		}
 		if count == 0 {
-			db.NamedExec(`
-				INSERT INTO contacts (name, phone, birthday)
-				VALUES (:name, :phone, :birthday);
-			`, &contact)
+			insert.Exec(&contact)
 		}
 	}
 }
@@ -113,7 +172,7 @@ func setupHttpRouter() {
 // findAllContacts responds with the list of all contacts as JSON.
 func findAllContacts(c *gin.Context) {
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT * FROM contacts")
+	err := selectAll.Select(&contacts)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -133,10 +192,7 @@ func createContact(c *gin.Context) {
 		// Bad request
 		log.Panicln(err)
 	}
-	result, err := db.NamedExec(`
-		INSERT INTO contacts (name, phone, birthday)
-		VALUES (:name, :phone, :birthday);
-	`, &newContact)
+	result, err := insert.Exec(&newContact)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -153,7 +209,7 @@ func createContact(c *gin.Context) {
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT * FROM contacts WHERE id=?", id)
+	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -170,7 +226,7 @@ func findContactByID(c *gin.Context) {
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contacts []Contact
-	err := db.Select(&contacts, "SELECT * FROM contacts WHERE id=?", id)
+	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -196,8 +252,10 @@ func updateContactByID(c *gin.Context) {
 		found.Birthday = submitted.Birthday
 	}
 
-	db.MustExec("UPDATE contacts SET name=?, phone=?, birthday=? WHERE id=?",
-		found.Name, found.Phone, found.Birthday, id)
+	_, err = updateWhereId.Exec(found.Name, found.Phone, found.Birthday, id)
+	if err != nil {
+		log.Panicln(err)
+	}
 	c.IndentedJSON(http.StatusCreated, found)
 }
 
@@ -205,7 +263,10 @@ func updateContactByID(c *gin.Context) {
 // parameter of the request URL from the database.
 func deleteContactByID(c *gin.Context) {
 	id := c.Param("id")
-	result := db.MustExec("DELETE FROM contacts WHERE id=?", id)
+	result, err := deleteWhereId.Exec(id)
+	if err != nil {
+		log.Panicln(err)
+	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Panicln(err)
