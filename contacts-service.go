@@ -37,10 +37,6 @@ var selectAll *sqlx.Stmt
 // id.
 var selectWhereId *sqlx.Stmt
 
-// updateWhereId is a prepared statement for updating a contact with a given
-// id.
-var updateWhereId *sqlx.Stmt
-
 // deleteWhereId is a prepared statement for deleting a contact with a given
 // id.
 var deleteWhereId *sqlx.Stmt
@@ -54,9 +50,8 @@ func main() {
 	setupHttpRouter()
 }
 
-// setupDatabase initializes the database connection and prepares all
-// statements. The connection parameters are taken from the command line
-// parameters.
+// setupDatabase initializes the database connection and prepares all statements. The connection
+// parameters are taken from the command line parameters.
 //
 // Usage example:
 // > go run contacts-service.go -dbuser=dirk -dbpwd=bullo92
@@ -99,12 +94,6 @@ func setupDatabase() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	updateWhereId, err = db.Preparex(`
-		UPDATE contacts SET name=?, phone=?, birthday=? WHERE id=?
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
 	deleteWhereId, err = db.Preparex(`
 		DELETE FROM contacts WHERE id=?
 	`)
@@ -113,8 +102,8 @@ func setupDatabase() {
 	}
 }
 
-// populateDatabase enters initial test data into the database. If the data is
-// already present in the table then it is not added again.
+// populateDatabase enters initial test data into the database. If the data is already present in
+// the table then it is not added again.
 func populateDatabase() {
 	initialContacts := []Contact{
 		{
@@ -183,9 +172,8 @@ func findAllContacts(c *gin.Context) {
 	}
 }
 
-// createContact inserts the contact specified in the request's JSON into the
-// database. It responds with the full contact data including the newly
-// assigned id.
+// createContact inserts the contact specified in the request's JSON into the database. It responds
+// with the full contact data including the newly assigned id.
 func createContact(c *gin.Context) {
 	var newContact Contact
 	if err := c.BindJSON(&newContact); err != nil {
@@ -204,8 +192,8 @@ func createContact(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, newContact)
 }
 
-// findContactByID locates the contact whose ID value matches the id parameter
-// of the request URL, then returns that contact as a response.
+// findContactByID locates the contact whose ID value matches the id parameter of the request URL,
+// then returns that contact as a response.
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var contacts []Contact
@@ -220,11 +208,44 @@ func findContactByID(c *gin.Context) {
 	}
 }
 
-// updateContactByID updates the contact whose ID value matches the id
-// parameter of the request URL, updates the values specified in the JSON (and
-// only those), and finally responds with the new version of the contact.
+// updateContactByID updates the contact whose ID value matches the id parameter of the request
+// URL, updates the values specified in the JSON (and only those), and finally responds with the
+// new version of the contact.
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
+	var submitted Contact
+	if err := c.BindJSON(&submitted); err != nil {
+		// Bad request
+		log.Panicln(err)
+	}
+
+	var args []interface{}
+	sql := "UPDATE contacts SET "
+	if len(submitted.Name) > 0 {
+		args = append(args, submitted.Name)
+		sql += "name=?, "
+	}
+	if len(submitted.Phone) > 0 {
+		args = append(args, submitted.Phone)
+		sql += "phone=?, "
+	}
+	if submitted.Birthday != epoch {
+		args = append(args, submitted.Birthday)
+		sql += "birthday=?, "
+	}
+
+	// It only makes sense to continue if we have at least one value to be updated.
+	if len(args) == 0 {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "no values to be updated"})
+		return
+	}
+
+	sql = sql[:len(sql)-2]
+	sql += " WHERE id=?"
+	args = append(args, id)
+	db.MustExec(sql, args...)
+
+	// In the HTTP response, return the full contact after the update.
 	var contacts []Contact
 	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
@@ -234,33 +255,11 @@ func updateContactByID(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
 		return
 	}
-	found := contacts[0]
-
-	var submitted Contact
-	if err := c.BindJSON(&submitted); err != nil {
-		// Bad request
-		log.Panicln(err)
-	}
-
-	if len(submitted.Name) > 0 {
-		found.Name = submitted.Name
-	}
-	if len(submitted.Phone) > 0 {
-		found.Phone = submitted.Phone
-	}
-	if submitted.Birthday != epoch {
-		found.Birthday = submitted.Birthday
-	}
-
-	_, err = updateWhereId.Exec(found.Name, found.Phone, found.Birthday, id)
-	if err != nil {
-		log.Panicln(err)
-	}
-	c.IndentedJSON(http.StatusCreated, found)
+	c.IndentedJSON(http.StatusCreated, contacts[0])
 }
 
-// deleteContactByID deletes the contact whose ID value matches the id
-// parameter of the request URL from the database.
+// deleteContactByID deletes the contact whose ID value matches the id parameter of the request URL
+// from the database.
 func deleteContactByID(c *gin.Context) {
 	id := c.Param("id")
 	result, err := deleteWhereId.Exec(id)
