@@ -91,3 +91,42 @@ func TestContactHappyPath(t *testing.T) {
 	router.ServeHTTP(getFinalRecorder, getFinalRequest)
 	assert.Equal(t, http.StatusNotFound, getFinalRecorder.Code)
 }
+
+// TestCreateContactInvalidBody tests a POST with different forms of invalid request body data.
+func TestCreateContactInvalidBody(t *testing.T) {
+	invalidRequestBodies := []string{
+		"",
+		"not JSON",
+		`{
+			"Name": "Erika Mustermann"
+			"Phone": "+49 0815 4711"
+			"Birthday": "1969-03-02T00:00:00Z"
+		}`, // commas missing
+	}
+
+	setupDatabase()
+	router := setupHttpRouter()
+	for _, body := range invalidRequestBodies {
+		recorder := httptest.NewRecorder()
+		request, _ := http.NewRequest("POST", "/contacts", strings.NewReader(body))
+		router.ServeHTTP(recorder, request)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code, "request body: "+body)
+	}
+}
+
+// TestCreateContactEmptyJSON tests a POST with an empty JSON which must create a contact with all
+// fields having the default values.
+func TestCreateContactEmptyJSON(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusCreated, recorder.Code)
+	var body map[string]interface{}
+	json.Unmarshal(recorder.Body.Bytes(), &body)
+	assert.Equal(t, "", body["Name"])
+	assert.Equal(t, "", body["Phone"])
+	assert.Equal(t, "0001-01-01T00:00:01Z", body["Birthday"])
+}

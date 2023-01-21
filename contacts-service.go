@@ -38,8 +38,8 @@ var selectWhereId *sqlx.Stmt
 // deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
 
-// constant for an unset date
-var epoch time.Time
+// mySqlMinDate is the smallest possible date that can be stored on MySQL.
+var mySqlMinDate = time.Date(1, time.January, 1, 0, 0, 1, 0, time.UTC)
 
 func main() {
 	setupDatabase()
@@ -168,11 +168,18 @@ func findAllContacts(c *gin.Context) {
 
 // createContact inserts the contact specified in the request's JSON into the database. It responds
 // with the full contact data including the newly assigned id.
+//
+// Limitations:
+// - If name or phone are not specified then an empty string is stored.
+// - If birthday is not specified then January 1 in the year 1 AD is stored.
 func createContact(c *gin.Context) {
 	var newContact Contact
 	if err := c.BindJSON(&newContact); err != nil {
-		// Bad request
-		log.Panicln(err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
+		return
+	}
+	if newContact.Birthday.Before(mySqlMinDate) {
+		newContact.Birthday = mySqlMinDate
 	}
 	result, err := insert.Exec(&newContact)
 	if err != nil {
@@ -209,8 +216,8 @@ func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
 	var submitted Contact
 	if err := c.BindJSON(&submitted); err != nil {
-		// Bad request
-		log.Panicln(err)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
+		return
 	}
 
 	var args []interface{}
@@ -223,7 +230,7 @@ func updateContactByID(c *gin.Context) {
 		args = append(args, submitted.Phone)
 		sql += "phone=?, "
 	}
-	if submitted.Birthday != epoch {
+	if !submitted.Birthday.IsZero() {
 		args = append(args, submitted.Birthday)
 		sql += "birthday=?, "
 	}
