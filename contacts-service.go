@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,19 +26,16 @@ var db *sqlx.DB
 // insert is a prepared statement for creating a contact on the database.
 var insert *sqlx.NamedStmt
 
-// countWhereName is a prepared statement for counting contacts with a given
-// name.
+// countWhereName is a prepared statement for counting contacts with a given name.
 var countWhereName *sqlx.Stmt
 
 // selectAll is a prepared statement for selecting all contacts.
 var selectAll *sqlx.Stmt
 
-// selectWhereId is a prepared statement for selecting contacts with a given
-// id.
+// selectWhereId is a prepared statement for selecting contacts with a given id.
 var selectWhereId *sqlx.Stmt
 
-// deleteWhereId is a prepared statement for deleting a contact with a given
-// id.
+// deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
 
 // constant for an unset date
@@ -47,21 +44,18 @@ var epoch time.Time
 func main() {
 	setupDatabase()
 	populateDatabase()
-	setupHttpRouter()
+	router := setupHttpRouter()
+	router.Run(":8080")
 }
 
 // setupDatabase initializes the database connection and prepares all statements. The connection
-// parameters are taken from the command line parameters.
+// parameters are taken from the system's environment variables.
 //
 // Usage example:
-// > go run contacts-service.go -dbuser=dirk -dbpwd=bullo92
+// > DBUSER=dirk DBPWD=bullo92 go run contacts-service.go
 func setupDatabase() {
 
-	dbuserp := flag.String("dbuser", "mysql", "the database user name")
-	dbpwdp := flag.String("dbpwd", "", "the password of the database user")
-	flag.Parse()
-
-	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", *dbuserp, *dbpwdp)
+	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", os.Getenv("DBUSER"), os.Getenv("DBPWD"))
 	var err error
 	db, err = sqlx.Connect("mysql", dsn)
 	if err != nil {
@@ -148,14 +142,14 @@ func populateDatabase() {
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Phone": "81970"}'
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"Birthday": "1972-06-06T00:00:00+00:00"}'
 // > curl http://localhost:8080/contacts/56 --request "DELETE"
-func setupHttpRouter() {
+func setupHttpRouter() *gin.Engine {
 	router := gin.Default()
 	router.GET("/contacts", findAllContacts)
 	router.POST("/contacts", createContact)
 	router.GET("/contacts/:id", findContactByID)
 	router.PUT("/contacts/:id", updateContactByID)
 	router.DELETE("/contacts/:id", deleteContactByID)
-	router.Run("localhost:8080")
+	return router
 }
 
 // findAllContacts responds with the list of all contacts as JSON.
@@ -255,7 +249,7 @@ func updateContactByID(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
 		return
 	}
-	c.IndentedJSON(http.StatusCreated, contacts[0])
+	c.IndentedJSON(http.StatusOK, contacts[0])
 }
 
 // deleteContactByID deletes the contact whose ID value matches the id parameter of the request URL
