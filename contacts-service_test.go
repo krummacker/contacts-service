@@ -3,15 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// Usage via command line: DBUSER=dirk DBPWD=bullo92 GIN_MODE=release go test
+// Usage via command line: DBUSER=dirk DBPWD=bullo92 GIN_MODE=release go test -v
 
 // TestContactHappyPath tests a POST, GET, PUT, and DELETE with valid data.
 func TestContactHappyPath(t *testing.T) {
@@ -208,4 +210,53 @@ func TestUpdateContactPartially(t *testing.T) {
 	assert.Equal(t, "Rudi Völler", putBody["name"])
 	assert.Nil(t, putBody["phone"])
 	assert.Nil(t, putBody["birthday"])
+}
+
+// TestFindAllContacts retrieves all contacts and verifies that a previously created contact is
+// among them.
+func TestFindAllContacts(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+
+	postRecorder := httptest.NewRecorder()
+	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"name": "Julius Cäsar", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(postRecorder, postRequest)
+	assert.Equal(t, http.StatusCreated, postRecorder.Code)
+	var postBody map[string]interface{}
+	json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+	idFromPost := int64(math.Round(postBody["id"].(float64)))
+
+	// test the endpoint for finding all contacts
+	getRecorder := httptest.NewRecorder()
+	getRequest, _ := http.NewRequest("GET", "/contacts", nil)
+	router.ServeHTTP(getRecorder, getRequest)
+	assert.Equal(t, http.StatusOK, getRecorder.Code)
+	var contacts []Contact
+	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+	var found bool
+	for _, contact := range contacts {
+		if contact.Id == idFromPost {
+			assert.Equal(t, "Julius Cäsar", *contact.Name)
+			assert.Equal(t, "+39 123 456 789", *contact.Phone)
+			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
+			found = true
+		}
+	}
+	assert.True(t, found, "could not find contact")
+}
+
+// TestFindContactInvalidId tests a GET with an invalid id.
+func TestFindContactInvalidId(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("GET", "/contacts/invalid", nil)
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
 }
