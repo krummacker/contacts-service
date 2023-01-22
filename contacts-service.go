@@ -226,6 +226,12 @@ func updateContactByID(c *gin.Context) {
 // > curl http://localhost:8080/contacts/56 --request "DELETE"
 func deleteContactByID(c *gin.Context) {
 	id := c.Param("id")
+	_, error := strconv.Atoi(id)
+	if error != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "invalid id parameter"})
+		return
+	}
+
 	result, err := deleteWhereId.Exec(id)
 	if err != nil {
 		log.Panicln(err)

@@ -260,3 +260,13 @@ func TestFindContactInvalidId(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
 }
+
+// TestDeleteContactInvalidId tests a DELETE with an invalid id.
+func TestDeleteContactInvalidId(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("DELETE", "/contacts/invalid", nil)
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
