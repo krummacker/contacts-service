@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -167,6 +168,12 @@ func findContactByID(c *gin.Context) {
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
+	_, error := strconv.Atoi(id)
+	if error != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "invalid id parameter"})
+		return
+	}
+
 	var submitted Contact
 	if err := c.BindJSON(&submitted); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
@@ -188,7 +195,7 @@ func updateContactByID(c *gin.Context) {
 		sql += "birthday=?, "
 	}
 
-	// It only makes sense to continue if we have at least one value to be updated.
+	// It only makes sense to continue if we have at least one value to update.
 	if len(args) == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "no values to be updated"})
 		return

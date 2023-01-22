@@ -126,7 +126,86 @@ func TestCreateContactEmptyJSON(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 	var body map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &body)
-	assert.Equal(t, nil, body["name"])
-	assert.Equal(t, nil, body["phone"])
-	assert.Equal(t, nil, body["birthday"])
+	assert.Nil(t, body["name"])
+	assert.Nil(t, body["phone"])
+	assert.Nil(t, body["birthday"])
+}
+
+// TestUpdateContactInvalidId tests a PUT with an invalid id.
+func TestUpdateContactInvalidId(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("PUT", "/contacts/invalid", strings.NewReader(`
+		{
+			"name": "Rudi Völler", 
+			"phone": "+49 1234567890", 
+			"birthday": "1960-04-13T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
+// TestUpdateContactInvalidBody tests a PUT with a valid id but an invalid request body.
+func TestUpdateContactInvalidBody(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+
+	postRecorder := httptest.NewRecorder()
+	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
+	router.ServeHTTP(postRecorder, postRequest)
+	assert.Equal(t, http.StatusCreated, postRecorder.Code)
+	var postBody map[string]interface{}
+	json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+	idAsFloat64 := postBody["id"]
+	idAsString := fmt.Sprintf("%.0f", idAsFloat64)
+
+	invalidRequestBodies := []string{
+		"",
+		"{}",
+		"not JSON",
+		`{
+			"name": "Erika Mustermann"
+			"phone": "+49 0815 4711"
+			"birthday": "1969-03-02T00:00:00Z"
+		}`, // commas missing
+	}
+	for _, body := range invalidRequestBodies {
+		putRecorder := httptest.NewRecorder()
+		putRequest, _ := http.NewRequest("PUT", "/contacts/"+idAsString, strings.NewReader(body))
+		router.ServeHTTP(putRecorder, putRequest)
+		assert.Equal(t, http.StatusBadRequest, putRecorder.Code)
+	}
+}
+
+// TestUpdateContactPartially tests a PUT with only one field specified in the JSON. It verifies
+// that the other fields are still nil.
+func TestUpdateContactPartially(t *testing.T) {
+	setupDatabase()
+	router := setupHttpRouter()
+
+	postRecorder := httptest.NewRecorder()
+	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
+	router.ServeHTTP(postRecorder, postRequest)
+	assert.Equal(t, http.StatusCreated, postRecorder.Code)
+	var postBody map[string]interface{}
+	json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+	idAsFloat64 := postBody["id"]
+	idAsString := fmt.Sprintf("%.0f", idAsFloat64)
+
+	putRecorder := httptest.NewRecorder()
+	putRequest, _ := http.NewRequest("PUT", "/contacts/"+idAsString, strings.NewReader(`
+		{
+			"name": "Rudi Völler"
+		}
+	`))
+	router.ServeHTTP(putRecorder, putRequest)
+	assert.Equal(t, http.StatusOK, putRecorder.Code)
+	var putBody map[string]interface{}
+	json.Unmarshal(putRecorder.Body.Bytes(), &putBody)
+	assert.Equal(t, idAsFloat64, putBody["id"])
+	assert.Equal(t, "Rudi Völler", putBody["name"])
+	assert.Nil(t, putBody["phone"])
+	assert.Nil(t, putBody["birthday"])
 }
