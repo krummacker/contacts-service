@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Usage via command line: DBUSER=dirk DBPWD=bullo92 GIN_MODE=release go test
+
 // TestContactHappyPath tests a POST, GET, PUT, and DELETE with valid data.
-//
-// Usage: DBUSER=dirk DBPWD=bullo92 GIN_MODE=release go test
 func TestContactHappyPath(t *testing.T) {
 	setupDatabase()
 	router := setupHttpRouter()
@@ -22,19 +22,19 @@ func TestContactHappyPath(t *testing.T) {
 	postRecorder := httptest.NewRecorder()
 	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
 		{
-			"Name": "Erika Mustermann", 
-			"Phone": "+49 0815 4711", 
-			"Birthday": "1969-03-02T00:00:00Z"
+			"name": "Erika Mustermann", 
+			"phone": "+49 0815 4711", 
+			"birthday": "1969-03-02T00:00:00Z"
 		}
 	`))
 	router.ServeHTTP(postRecorder, postRequest)
 	assert.Equal(t, http.StatusCreated, postRecorder.Code)
 	var postBody map[string]interface{}
 	json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
-	assert.Equal(t, "Erika Mustermann", postBody["Name"])
-	assert.Equal(t, "+49 0815 4711", postBody["Phone"])
-	assert.Equal(t, "1969-03-02T00:00:00Z", postBody["Birthday"])
-	idAsFloat64 := postBody["Id"]
+	assert.Equal(t, "Erika Mustermann", postBody["name"])
+	assert.Equal(t, "+49 0815 4711", postBody["phone"])
+	assert.Equal(t, "1969-03-02T00:00:00Z", postBody["birthday"])
+	idAsFloat64 := postBody["id"]
 	idAsString := fmt.Sprintf("%.0f", idAsFloat64)
 
 	// test the endpoint for finding a contact
@@ -44,28 +44,28 @@ func TestContactHappyPath(t *testing.T) {
 	assert.Equal(t, http.StatusOK, getRecorder.Code)
 	var getBody map[string]interface{}
 	json.Unmarshal(getRecorder.Body.Bytes(), &getBody)
-	assert.Equal(t, idAsFloat64, getBody["Id"])
-	assert.Equal(t, "Erika Mustermann", getBody["Name"])
-	assert.Equal(t, "+49 0815 4711", getBody["Phone"])
-	assert.Equal(t, "1969-03-02T00:00:00Z", getBody["Birthday"])
+	assert.Equal(t, idAsFloat64, getBody["id"])
+	assert.Equal(t, "Erika Mustermann", getBody["name"])
+	assert.Equal(t, "+49 0815 4711", getBody["phone"])
+	assert.Equal(t, "1969-03-02T00:00:00Z", getBody["birthday"])
 
 	// test the endpoint for updating a contact
 	putRecorder := httptest.NewRecorder()
 	putRequest, _ := http.NewRequest("PUT", "/contacts/"+idAsString, strings.NewReader(`
 		{
-			"Name": "Rudi Völler", 
-			"Phone": "+49 1234567890", 
-			"Birthday": "1960-04-13T00:00:00Z"
+			"name": "Rudi Völler", 
+			"phone": "+49 1234567890", 
+			"birthday": "1960-04-13T00:00:00Z"
 		}
 	`))
 	router.ServeHTTP(putRecorder, putRequest)
 	assert.Equal(t, http.StatusOK, putRecorder.Code)
 	var putBody map[string]interface{}
 	json.Unmarshal(putRecorder.Body.Bytes(), &putBody)
-	assert.Equal(t, idAsFloat64, putBody["Id"])
-	assert.Equal(t, "Rudi Völler", putBody["Name"])
-	assert.Equal(t, "+49 1234567890", putBody["Phone"])
-	assert.Equal(t, "1960-04-13T00:00:00Z", putBody["Birthday"])
+	assert.Equal(t, idAsFloat64, putBody["id"])
+	assert.Equal(t, "Rudi Völler", putBody["name"])
+	assert.Equal(t, "+49 1234567890", putBody["phone"])
+	assert.Equal(t, "1960-04-13T00:00:00Z", putBody["birthday"])
 
 	// test if a subsequent lookup of the contact returns the updated values
 	getAgainRecorder := httptest.NewRecorder()
@@ -74,10 +74,10 @@ func TestContactHappyPath(t *testing.T) {
 	assert.Equal(t, http.StatusOK, getAgainRecorder.Code)
 	var getAgainBody map[string]interface{}
 	json.Unmarshal(getAgainRecorder.Body.Bytes(), &getAgainBody)
-	assert.Equal(t, idAsFloat64, getAgainBody["Id"])
-	assert.Equal(t, "Rudi Völler", getAgainBody["Name"])
-	assert.Equal(t, "+49 1234567890", getAgainBody["Phone"])
-	assert.Equal(t, "1960-04-13T00:00:00Z", getAgainBody["Birthday"])
+	assert.Equal(t, idAsFloat64, getAgainBody["id"])
+	assert.Equal(t, "Rudi Völler", getAgainBody["name"])
+	assert.Equal(t, "+49 1234567890", getAgainBody["phone"])
+	assert.Equal(t, "1960-04-13T00:00:00Z", getAgainBody["birthday"])
 
 	// test the endpoint for deleting a contact
 	deleteRecorder := httptest.NewRecorder()
@@ -98,9 +98,9 @@ func TestCreateContactInvalidBody(t *testing.T) {
 		"",
 		"not JSON",
 		`{
-			"Name": "Erika Mustermann"
-			"Phone": "+49 0815 4711"
-			"Birthday": "1969-03-02T00:00:00Z"
+			"name": "Erika Mustermann"
+			"phone": "+49 0815 4711"
+			"birthday": "1969-03-02T00:00:00Z"
 		}`, // commas missing
 	}
 
@@ -115,7 +115,7 @@ func TestCreateContactInvalidBody(t *testing.T) {
 }
 
 // TestCreateContactEmptyJSON tests a POST with an empty JSON which must create a contact with all
-// fields having the default values.
+// fields having nil/null values.
 func TestCreateContactEmptyJSON(t *testing.T) {
 	setupDatabase()
 	router := setupHttpRouter()
@@ -126,7 +126,7 @@ func TestCreateContactEmptyJSON(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 	var body map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &body)
-	assert.Equal(t, "", body["Name"])
-	assert.Equal(t, "", body["Phone"])
-	assert.Equal(t, "0001-01-01T00:00:01Z", body["Birthday"])
+	assert.Equal(t, nil, body["name"])
+	assert.Equal(t, nil, body["phone"])
+	assert.Equal(t, nil, body["birthday"])
 }
