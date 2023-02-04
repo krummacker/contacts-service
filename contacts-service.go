@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,10 +17,10 @@ import (
 // Contact is the data structure for a person that we know.
 // All fields with the exception of the Id field are optional.
 type Contact struct {
-	Id       int64      `json:"id"`
-	Name     *string    `json:"name,omitempty"`
-	Phone    *string    `json:"phone,omitempty"`
-	Birthday *time.Time `json:"birthday,omitempty"`
+	Id       int64      `json:"id"                 db:"id"`
+	Name     *string    `json:"name,omitempty"     db:"name"`
+	Phone    *string    `json:"phone,omitempty"    db:"phone"`
+	Birthday *time.Time `json:"birthday,omitempty" db:"birthday"`
 }
 
 // db is a handle to the database.
@@ -37,25 +38,32 @@ var selectWhereId *sqlx.Stmt
 // deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
 
+// Usage example on the command line:
+// > DBUSER=dirk DBPWD=bullo92 go run contacts-service.go
 func main() {
-	setupDatabase()
+	sqlDB := createDatabase()
+	setupDatabaseWrapper(sqlDB)
 	router := setupHttpRouter()
 	router.Run(":8080")
 }
 
-// setupDatabase initializes the database connection and prepares all statements. The connection
-// parameters are taken from the system's environment variables.
-//
-// Usage example:
-// > DBUSER=dirk DBPWD=bullo92 go run contacts-service.go
-func setupDatabase() {
-
+// createDatabase initializes and returns a database connection. The connection parameters are
+// taken from the system's environment variables.
+func createDatabase() *sql.DB {
 	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", os.Getenv("DBUSER"), os.Getenv("DBPWD"))
-	var err error
-	db, err = sqlx.Connect("mysql", dsn)
+	sqlDB, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
+	return sqlDB
+}
+
+// setupDatabaseWrapper initializes the sqlx database wrapper with the specified sql database. It
+// then prepares all statements. The database argument can be a real database for production use
+// or a mock database within unit tests.
+func setupDatabaseWrapper(sqlDB *sql.DB) {
+	var err error
+	db = sqlx.NewDb(sqlDB, "mysql")
 
 	// Prepared statements offer a significant speed increase if executed many times.
 	insert, err = db.PrepareNamed(`
