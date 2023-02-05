@@ -1,10 +1,11 @@
 image: golang:latest
 
 stages:
-  - test
+  - check
 
-test:
-  stage: test
+check:
+  stage: check
   script:
+    - go vet
     - go test -v
 
