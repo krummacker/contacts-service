@@ -11,7 +11,7 @@ image: golang:latest
 
 stages:
   - check
-#test
+
 check:
   stage: check
   extends: .go-cache
