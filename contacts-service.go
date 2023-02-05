@@ -155,6 +155,12 @@ func createContact(c *gin.Context) {
 // > curl http://localhost:8080/contacts/56
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
+	_, errConv := strconv.Atoi(id)
+	if errConv != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "invalid id parameter"})
+		return
+	}
+
 	var contacts []Contact
 	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
@@ -176,14 +182,14 @@ func findContactByID(c *gin.Context) {
 // > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
-	_, error := strconv.Atoi(id)
-	if error != nil {
+	_, errConv := strconv.Atoi(id)
+	if errConv != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "invalid id parameter"})
 		return
 	}
 
 	var submitted Contact
-	if err := c.BindJSON(&submitted); err != nil {
+	if errBind := c.BindJSON(&submitted); errBind != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
 		return
 	}
@@ -212,13 +218,21 @@ func updateContactByID(c *gin.Context) {
 	sql = sql[:len(sql)-2]
 	sql += " WHERE id=?"
 	args = append(args, id)
-	db.MustExec(sql, args...)
+	result := db.MustExec(sql, args...)
+	rowsAffected, errRows := result.RowsAffected()
+	if errRows != nil {
+		log.Panicln(errRows)
+	}
+	if rowsAffected == 0 {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
+		return
+	}
 
 	// In the HTTP response, return the full contact after the update.
 	var contacts []Contact
-	err := selectWhereId.Select(&contacts, id)
-	if err != nil {
-		log.Panicln(err)
+	errSelect := selectWhereId.Select(&contacts, id)
+	if errSelect != nil {
+		log.Panicln(errRows)
 	}
 	if len(contacts) == 0 {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
