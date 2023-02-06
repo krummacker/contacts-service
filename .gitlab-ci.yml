@@ -6,5 +6,6 @@ stages:
 check:
   stage: check
   script:
+    - go version
     - go vet
     - go test -v
