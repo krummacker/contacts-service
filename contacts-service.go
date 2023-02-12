@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,7 @@ var selectWhereId *sqlx.Stmt
 var deleteWhereId *sqlx.Stmt
 
 // Usage example on the command line:
-// > DBUSER=dirk DBPWD=bullo92 go run contacts-service.go
+// > DBUSER=dirk DBPWD=bullo92 GIN_LOGGING=OFF go run contacts-service.go
 func main() {
 	sqlDB := createDatabase()
 	setupDatabaseWrapper(sqlDB)
@@ -95,7 +96,13 @@ func setupDatabaseWrapper(sqlDB *sql.DB) {
 
 // setupHttpRouter initializes the REST API router and registers all endpoints.
 func setupHttpRouter() *gin.Engine {
-	router := gin.Default()
+	var router *gin.Engine
+	if strings.EqualFold(os.Getenv("GIN_LOGGING"), "off") {
+		fmt.Println("Turning off HTTP request logging.")
+		router = gin.New()
+	} else {
+		router = gin.Default()
+	}
 	router.GET("/contacts", findAllContacts)
 	router.POST("/contacts", createContact)
 	router.GET("/contacts/:id", findContactByID)
