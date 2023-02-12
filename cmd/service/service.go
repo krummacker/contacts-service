@@ -39,15 +39,6 @@ var selectWhereId *sqlx.Stmt
 // deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
 
-// Usage example on the command line:
-// > DBUSER=dirk DBPWD=bullo92 GIN_LOGGING=OFF go run contacts-service.go
-func main() {
-	sqlDB := createDatabase()
-	setupDatabaseWrapper(sqlDB)
-	router := setupHttpRouter()
-	router.Run(":8080")
-}
-
 // createDatabase initializes and returns a database connection. The connection parameters are
 // taken from the system's environment variables.
 func createDatabase() *sql.DB {
