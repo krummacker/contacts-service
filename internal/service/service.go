@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"database/sql"
@@ -39,9 +39,9 @@ var selectWhereId *sqlx.Stmt
 // deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
 
-// createDatabase initializes and returns a database connection. The connection parameters are
+// CreateDatabase initializes and returns a database connection. The connection parameters are
 // taken from the system's environment variables.
-func createDatabase() *sql.DB {
+func CreateDatabase() *sql.DB {
 	dsn := fmt.Sprintf("%s:%s@/test?parseTime=true", os.Getenv("DBUSER"), os.Getenv("DBPWD"))
 	sqlDB, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -50,10 +50,10 @@ func createDatabase() *sql.DB {
 	return sqlDB
 }
 
-// setupDatabaseWrapper initializes the sqlx database wrapper with the specified sql database. It
+// SetupDatabaseWrapper initializes the sqlx database wrapper with the specified sql database. It
 // then prepares all statements. The database argument can be a real database for production use
 // or a mock database within unit tests.
-func setupDatabaseWrapper(sqlDB *sql.DB) {
+func SetupDatabaseWrapper(sqlDB *sql.DB) {
 	var err error
 	db = sqlx.NewDb(sqlDB, "mysql")
 
@@ -85,8 +85,8 @@ func setupDatabaseWrapper(sqlDB *sql.DB) {
 	}
 }
 
-// setupHttpRouter initializes the REST API router and registers all endpoints.
-func setupHttpRouter() *gin.Engine {
+// SetupHttpRouter initializes the REST API router and registers all endpoints.
+func SetupHttpRouter() *gin.Engine {
 	var router *gin.Engine
 	if strings.EqualFold(os.Getenv("GIN_LOGGING"), "off") {
 		fmt.Println("Turning off HTTP request logging.")

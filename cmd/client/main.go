@@ -19,6 +19,8 @@ type Contact struct {
 	Birthday *time.Time `json:"birthday,omitempty" db:"birthday"`
 }
 
+// Usage example on the command line:
+// > go run main.go
 func main() {
 	fmt.Println()
 	fmt.Println("  Elements      POST       PUT       GET    DELETE ")

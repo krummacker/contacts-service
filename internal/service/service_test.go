@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"database/sql"
@@ -47,9 +47,9 @@ func expectSingleRowSelect(mock sqlmock.Sqlmock, id int, name string, phone stri
 // initializeContactsService sets up the contacts service with the mock database and returns a
 // handle to the gin engine against which requests can be executed.
 func initializeContactsService(db *sql.DB) *gin.Engine {
-	setupDatabaseWrapper(db)
+	SetupDatabaseWrapper(db)
 	gin.SetMode(gin.ReleaseMode)
-	return setupHttpRouter()
+	return SetupHttpRouter()
 }
 
 // runTest executes the HTTP request with the specified arguments and returns the response.

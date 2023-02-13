@@ -1,14 +1,14 @@
 package main
 
 import (
-	_ "github.com/go-sql-driver/mysql"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/service"
 )
 
 // Usage example on the command line:
-// > DBUSER=dirk DBPWD=bullo92 GIN_LOGGING=OFF go run contacts-service.go
+// > DBUSER=dirk DBPWD=bullo92 GIN_MODE=release GIN_LOGGING=OFF go run main.go
 func main() {
-	sqlDB := createDatabase()
-	setupDatabaseWrapper(sqlDB)
-	router := setupHttpRouter()
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
 	router.Run(":8080")
 }
