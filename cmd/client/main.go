@@ -7,16 +7,25 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
 )
 
-const serverPort = 8080
+// serverPort is the port of the server that this client will contact.
+var serverPort int
 
 // Usage example on the command line:
-// > go run main.go
+// > PORT=8080 go run main.go
 func main() {
+	var err error
+	serverPort, err = strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		fmt.Println("could not parse PORT env variable", err)
+		panic(err)
+	}
 	fmt.Println()
 	fmt.Println("  Elements      POST       PUT       GET    DELETE ")
 	fmt.Println("---------------------------------------------------")
