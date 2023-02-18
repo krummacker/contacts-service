@@ -8,16 +8,11 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
+	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
 )
 
 const serverPort = 8080
-
-type Contact struct {
-	Id       int64      `json:"id"                 db:"id"`
-	Name     *string    `json:"name,omitempty"     db:"name"`
-	Phone    *string    `json:"phone,omitempty"    db:"phone"`
-	Birthday *time.Time `json:"birthday,omitempty" db:"birthday"`
-}
 
 // Usage example on the command line:
 // > go run main.go
@@ -93,7 +88,7 @@ func createRandomSliceWithIDs(firstID int64, loops int) []int64 {
 func sendPostRequest(bodyReader io.Reader) (int64, int64) {
 	requestURL := fmt.Sprintf("http://localhost:%d/contacts", serverPort)
 	resBody, duration := sendRequest(http.MethodPost, requestURL, bodyReader)
-	var contact Contact
+	var contact model.Contact
 	err := json.Unmarshal(resBody, &contact)
 	if err != nil {
 		fmt.Println("could not unmarshal JSON", err)

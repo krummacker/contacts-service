@@ -8,21 +8,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
 )
-
-// Contact is the data structure for a person that we know.
-// All fields with the exception of the Id field are optional.
-type Contact struct {
-	Id       int64      `json:"id"                 db:"id"`
-	Name     *string    `json:"name,omitempty"     db:"name"`
-	Phone    *string    `json:"phone,omitempty"    db:"phone"`
-	Birthday *time.Time `json:"birthday,omitempty" db:"birthday"`
-}
 
 // db is a handle to the database.
 var db *sqlx.DB
@@ -107,7 +98,7 @@ func SetupHttpRouter() *gin.Engine {
 // Example REST API call:
 // > curl http://localhost:8080/contacts
 func findAllContacts(c *gin.Context) {
-	var contacts []Contact
+	var contacts []model.Contact
 	err := selectAll.Select(&contacts)
 	if err != nil {
 		log.Panicln(err)
@@ -129,7 +120,7 @@ func findAllContacts(c *gin.Context) {
 // Example REST API call:
 // > curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"name": "Hans Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
 func createContact(c *gin.Context) {
-	var newContact Contact
+	var newContact model.Contact
 	if err := c.BindJSON(&newContact); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
 		return
@@ -159,7 +150,7 @@ func findContactByID(c *gin.Context) {
 		return
 	}
 
-	var contacts []Contact
+	var contacts []model.Contact
 	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
 		log.Panicln(err)
@@ -186,7 +177,7 @@ func updateContactByID(c *gin.Context) {
 		return
 	}
 
-	var submitted Contact
+	var submitted model.Contact
 	if errBind := c.BindJSON(&submitted); errBind != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
 		return
@@ -227,7 +218,7 @@ func updateContactByID(c *gin.Context) {
 	}
 
 	// In the HTTP response, return the full contact after the update.
-	var contacts []Contact
+	var contacts []model.Contact
 	errSelect := selectWhereId.Select(&contacts, id)
 	if errSelect != nil {
 		log.Panicln(errRows)

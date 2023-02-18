@@ -13,6 +13,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
 )
 
 // createMockObjects builds a mock database handle and a mock object for defining our expected SQL
@@ -83,7 +84,7 @@ func TestGetAll(t *testing.T) {
 	recorder := runTest(db, "GET", "/contacts", nil)
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var contacts []Contact
+	var contacts []model.Contact
 	json.Unmarshal(recorder.Body.Bytes(), &contacts)
 	assert.Equal(t, 3, len(contacts))
 
