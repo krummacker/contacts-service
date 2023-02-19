@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
+	"gitlab.com/dirk.krummacker/contacts-service/pkg/randomgen"
 )
 
 // serverPort is the port of the server that this client will contact.
@@ -30,18 +31,14 @@ func main() {
 	fmt.Println("  Elements      POST       PUT       GET    DELETE ")
 	fmt.Println("---------------------------------------------------")
 	sizes := []int{1000, 5000, 10000, 50000, 100000}
-	jsonBody := []byte(`{
-		"name": "Marcus Antonius",
-		"phone": "+39 999 777 555",
-		"birthday": "0027-11-09T00:00:00Z"
-	}`)
 	for _, loops := range sizes {
-		firstID, _ := sendPostRequest(bytes.NewReader(jsonBody))
+		firstID, _ := sendPostRequest(bytes.NewReader(CreateRandomContactJson()))
 		fmt.Printf("%10d", loops)
 		{
 			// POST requests
 			var duration int64
 			for i := 0; i < loops; i++ {
+				jsonBody := CreateRandomContactJson()
 				_, d := sendPostRequest(bytes.NewReader(jsonBody))
 				duration += d
 			}
@@ -50,6 +47,7 @@ func main() {
 		{
 			// PUT requests
 			f := func(id int64) int64 {
+				jsonBody := CreateRandomContactJson()
 				return sendPutGetDeleteRequest(id, http.MethodPut, bytes.NewReader(jsonBody))
 			}
 			callInLoop(firstID, loops, f)
@@ -71,6 +69,15 @@ func main() {
 		sendPutGetDeleteRequest(firstID, http.MethodDelete, nil)
 		fmt.Println()
 	}
+}
+
+func CreateRandomContactJson() []byte {
+	result := []byte(`{
+		"name": "` + randomgen.PickFirstName() + " " + randomgen.PickLastName() + `",
+		"phone": "` + randomgen.PickPhoneNumber("+1") + `",
+		"birthday": "` + randomgen.PickBirthDate() + `"
+	}`)
+	return result
 }
 
 func callInLoop(firstID int64, loops int, f func(id int64) int64) {
