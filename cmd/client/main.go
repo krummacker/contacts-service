@@ -73,7 +73,8 @@ func main() {
 
 func CreateRandomContactJson() []byte {
 	result := []byte(`{
-		"name": "` + randomgen.PickFirstName() + " " + randomgen.PickLastName() + `",
+		"firstname": "` + randomgen.PickFirstName() + `",
+		"lastname": "` + randomgen.PickLastName() + `",
 		"phone": "` + randomgen.PickPhoneNumber("+1") + `",
 		"birthday": "` + randomgen.PickBirthDate() + `"
 	}`)

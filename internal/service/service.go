@@ -50,8 +50,8 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 
 	// Prepared statements offer a significant speed increase if executed many times.
 	insert, err = db.PrepareNamed(`
-		INSERT INTO contacts (name, phone, birthday)
-		VALUES (:name, :phone, :birthday)
+		INSERT INTO contacts (firstname, lastname, phone, birthday)
+		VALUES (:firstname, :lastname, :phone, :birthday)
 	`)
 	if err != nil {
 		log.Fatal(err)
@@ -114,11 +114,11 @@ func findAllContacts(c *gin.Context) {
 // with the full contact data including the newly assigned id.
 //
 // Limitations:
-// - If name or phone are not specified then an empty string is stored.
+// - If firstname, lastname or phone are not specified then an empty string is stored.
 // - If birthday is not specified then January 1 in the year 1 AD is stored.
 //
 // Example REST API call:
-// > curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"name": "Hans Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
+// > curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"firstname": "Hans", "lastname": "Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
 func createContact(c *gin.Context) {
 	var newContact model.Contact
 	if err := c.BindJSON(&newContact); err != nil {
@@ -185,9 +185,13 @@ func updateContactByID(c *gin.Context) {
 
 	var args []interface{}
 	sql := "UPDATE contacts SET "
-	if submitted.Name != nil {
-		args = append(args, submitted.Name)
-		sql += "name=?, "
+	if submitted.FirstName != nil {
+		args = append(args, submitted.FirstName)
+		sql += "firstname=?, "
+	}
+	if submitted.LastName != nil {
+		args = append(args, submitted.LastName)
+		sql += "lastname=?, "
 	}
 	if submitted.Phone != nil {
 		args = append(args, submitted.Phone)

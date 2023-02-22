@@ -37,9 +37,9 @@ func expectPreparedStatements(mock sqlmock.Sqlmock) {
 
 // expectSingleRowSelect instructs the mock object to expect that a select statement for a single
 // contact will be executed.
-func expectSingleRowSelect(mock sqlmock.Sqlmock, id int, name string, phone string, birthday time.Time) {
-	rows := mock.NewRows([]string{"id", "name", "phone", "birthday"}).
-		AddRow(id, name, phone, birthday)
+func expectSingleRowSelect(mock sqlmock.Sqlmock, id int, firstname string, lastname string, phone string, birthday time.Time) {
+	rows := mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}).
+		AddRow(id, firstname, lastname, phone, birthday)
 	mock.ExpectQuery("SELECT \\* FROM contacts WHERE id=?").
 		WithArgs(strconv.Itoa(id)).
 		WillReturnRows(rows)
@@ -73,10 +73,10 @@ func TestGetAll(t *testing.T) {
 
 	// Define expectations on SQL statements
 	expectPreparedStatements(mock)
-	rows := mock.NewRows([]string{"id", "name", "phone", "birthday"}).
-		AddRow(1, "Aaron", "+420 111", time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)).
-		AddRow(2, "Berta", "+420 222", time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)).
-		AddRow(3, "Carla", "+420 333", time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC))
+	rows := mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}).
+		AddRow(1, "Aaron", "Huber", "+420 111", time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(2, "Berta", "Müller", "+420 222", time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(3, "Carla", "Meier", "+420 333", time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC))
 	mock.ExpectQuery("SELECT \\* FROM contacts").
 		WillReturnRows(rows)
 
@@ -89,17 +89,20 @@ func TestGetAll(t *testing.T) {
 	assert.Equal(t, 3, len(contacts))
 
 	assert.Equal(t, int64(1), contacts[0].Id)
-	assert.Equal(t, "Aaron", *contacts[0].Name)
+	assert.Equal(t, "Aaron", *contacts[0].FirstName)
+	assert.Equal(t, "Huber", *contacts[0].LastName)
 	assert.Equal(t, "+420 111", *contacts[0].Phone)
 	assert.Equal(t, time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[0].Birthday)
 
 	assert.Equal(t, int64(2), contacts[1].Id)
-	assert.Equal(t, "Berta", *contacts[1].Name)
+	assert.Equal(t, "Berta", *contacts[1].FirstName)
+	assert.Equal(t, "Müller", *contacts[1].LastName)
 	assert.Equal(t, "+420 222", *contacts[1].Phone)
 	assert.Equal(t, time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[1].Birthday)
 
 	assert.Equal(t, int64(3), contacts[2].Id)
-	assert.Equal(t, "Carla", *contacts[2].Name)
+	assert.Equal(t, "Carla", *contacts[2].FirstName)
+	assert.Equal(t, "Meier", *contacts[2].LastName)
 	assert.Equal(t, "+420 333", *contacts[2].Phone)
 	assert.Equal(t, time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[2].Birthday)
 
@@ -118,7 +121,8 @@ func TestGet(t *testing.T) {
 	expectPreparedStatements(mock)
 	expectSingleRowSelect(mock,
 		29,
-		"Erika Mustermann",
+		"Erika",
+		"Mustermann",
 		"+49 0815 4711",
 		time.Date(1969, time.March, 2, 0, 0, 0, 0, time.UTC),
 	)
@@ -129,7 +133,8 @@ func TestGet(t *testing.T) {
 	var getBody map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &getBody)
 	assert.Equal(t, 29.0, getBody["id"])
-	assert.Equal(t, "Erika Mustermann", getBody["name"])
+	assert.Equal(t, "Erika", getBody["firstname"])
+	assert.Equal(t, "Mustermann", getBody["lastname"])
 	assert.Equal(t, "+49 0815 4711", getBody["phone"])
 	assert.Equal(t, "1969-03-02T00:00:00Z", getBody["birthday"])
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -147,7 +152,7 @@ func TestGetInvalidNumericID(t *testing.T) {
 	expectPreparedStatements(mock)
 	mock.ExpectQuery("SELECT \\* FROM contacts WHERE id=?").
 		WithArgs("9999").
-		WillReturnRows(mock.NewRows([]string{"id", "name", "phone", "birthday"}))
+		WillReturnRows(mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}))
 
 	// Run test and compare results
 	recorder := runTest(db, "GET", "/contacts/9999", nil)
@@ -185,7 +190,8 @@ func TestPost(t *testing.T) {
 	expectPreparedStatements(mock)
 	mock.ExpectExec("INSERT INTO contacts").
 		WithArgs(
-			"Erika Mustermann",
+			"Erika",
+			"Mustermann",
 			"+49 0815 4711",
 			time.Date(1969, time.March, 4, 0, 0, 0, 0, time.UTC),
 		).
@@ -194,7 +200,8 @@ func TestPost(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "POST", "/contacts", strings.NewReader(`
 		{
-			"name": "Erika Mustermann", 
+			"firstname": "Erika", 
+			"lastname": "Mustermann", 
 			"phone": "+49 0815 4711", 
 			"birthday": "1969-03-04T00:00:00Z"
 		}
@@ -202,7 +209,8 @@ func TestPost(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 	var postBody map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &postBody)
-	assert.Equal(t, "Erika Mustermann", postBody["name"])
+	assert.Equal(t, "Erika", postBody["firstname"])
+	assert.Equal(t, "Mustermann", postBody["lastname"])
 	assert.Equal(t, "+49 0815 4711", postBody["phone"])
 	assert.Equal(t, "1969-03-04T00:00:00Z", postBody["birthday"])
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -217,7 +225,8 @@ func TestPostInvalidBodies(t *testing.T) {
 		"",
 		"not JSON",
 		`{
-			"name": "Erika Mustermann"
+			"firstname": "Erika"
+			"lastname": "Mustermann"
 			"phone": "+49 0815 4711"
 			"birthday": "1969-03-02T00:00:00Z"
 		}`, // commas missing
@@ -248,7 +257,7 @@ func TestPostEmptyJSON(t *testing.T) {
 	// Define expectations on SQL statements
 	expectPreparedStatements(mock)
 	mock.ExpectExec("INSERT INTO contacts").
-		WithArgs(nil, nil, nil).
+		WithArgs(nil, nil, nil, nil).
 		WillReturnResult(sqlmock.NewResult(49, 1))
 
 	// Run test and compare results
@@ -256,7 +265,8 @@ func TestPostEmptyJSON(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 	var postBody map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &postBody)
-	assert.Equal(t, nil, postBody["name"])
+	assert.Equal(t, nil, postBody["firstname"])
+	assert.Equal(t, nil, postBody["lastname"])
 	assert.Equal(t, nil, postBody["phone"])
 	assert.Equal(t, nil, postBody["birthday"])
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -274,7 +284,8 @@ func TestPut(t *testing.T) {
 	expectPreparedStatements(mock)
 	mock.ExpectExec("UPDATE contacts").
 		WithArgs(
-			"Rudi Völler",
+			"Rudi",
+			"Völler",
 			"+49 1234567890",
 			time.Date(1960, time.April, 13, 0, 0, 0, 0, time.UTC),
 			"17",
@@ -282,7 +293,8 @@ func TestPut(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(-1, 1))
 	expectSingleRowSelect(mock,
 		17,
-		"Rudi Völler",
+		"Rudi",
+		"Völler",
 		"+49 1234567890",
 		time.Date(1960, time.April, 13, 0, 0, 0, 0, time.UTC),
 	)
@@ -290,7 +302,8 @@ func TestPut(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "PUT", "/contacts/17", strings.NewReader(`
 		{
-			"name": "Rudi Völler", 
+			"firstname": "Rudi", 
+			"lastname": "Völler", 
 			"phone": "+49 1234567890", 
 			"birthday": "1960-04-13T00:00:00Z"
 		}
@@ -299,7 +312,8 @@ func TestPut(t *testing.T) {
 	var postBody map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &postBody)
 	assert.Equal(t, 17.0, postBody["id"])
-	assert.Equal(t, "Rudi Völler", postBody["name"])
+	assert.Equal(t, "Rudi", postBody["firstname"])
+	assert.Equal(t, "Völler", postBody["lastname"])
 	assert.Equal(t, "+49 1234567890", postBody["phone"])
 	assert.Equal(t, "1960-04-13T00:00:00Z", postBody["birthday"])
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -324,7 +338,8 @@ func TestPutPartial(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(-1, 1))
 	expectSingleRowSelect(mock,
 		35,
-		"Rudi Völler",
+		"Rudi",
+		"Völler",
 		"+49 1234567890",
 		time.Date(1950, time.April, 13, 0, 0, 0, 0, time.UTC),
 	)
@@ -339,7 +354,8 @@ func TestPutPartial(t *testing.T) {
 	var postBody map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &postBody)
 	assert.Equal(t, 35.0, postBody["id"])
-	assert.Equal(t, "Rudi Völler", postBody["name"])
+	assert.Equal(t, "Rudi", postBody["firstname"])
+	assert.Equal(t, "Völler", postBody["lastname"])
 	assert.Equal(t, "+49 1234567890", postBody["phone"])
 	assert.Equal(t, "1950-04-13T00:00:00Z", postBody["birthday"])
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -357,13 +373,14 @@ func TestPutInvalidNumericID(t *testing.T) {
 	// Define expectations on SQL statements
 	expectPreparedStatements(mock)
 	mock.ExpectExec("UPDATE contacts").
-		WithArgs("Rudi Völler", "9999").
+		WithArgs("Rudi", "Völler", "9999").
 		WillReturnResult(sqlmock.NewResult(-1, 0))
 
 	// Run test and compare results
 	recorder := runTest(db, "PUT", "/contacts/9999", strings.NewReader(`
 		{
-			"name": "Rudi Völler"
+			"firstname": "Rudi",
+			"lastname": "Völler"
 		}
 	`))
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -385,7 +402,8 @@ func TestPutInvalidCharacterID(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "PUT", "/contacts/INVALID", strings.NewReader(`
 		{
-			"name": "Rudi Völler"
+			"firstname": "Rudi",
+			"lastname": "Völler"
 		}
 	`))
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -402,7 +420,8 @@ func TestPutInvalidBodies(t *testing.T) {
 		"{}",
 		"not JSON",
 		`{
-			"name": "Erika Mustermann"
+			"firstname": "Erika"
+			"lastname": "Mustermann"
 			"phone": "+49 0815 4711"
 			"birthday": "1969-03-02T00:00:00Z"
 		}`, // commas missing
