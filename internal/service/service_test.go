@@ -31,6 +31,7 @@ func createMockObjects(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 func expectPreparedStatements(mock sqlmock.Sqlmock) {
 	mock.ExpectPrepare("INSERT INTO contacts")
 	mock.ExpectPrepare("SELECT \\* FROM contacts")
+	mock.ExpectPrepare("SELECT \\* FROM contacts WHERE firstname LIKE \\? AND lastname LIKE \\?")
 	mock.ExpectPrepare("SELECT \\* FROM contacts WHERE id=?")
 	mock.ExpectPrepare("DELETE FROM contacts WHERE id=?")
 }
@@ -91,6 +92,98 @@ func TestGetAll(t *testing.T) {
 	assert.Equal(t, int64(1), contacts[0].Id)
 	assert.Equal(t, "Aaron", *contacts[0].FirstName)
 	assert.Equal(t, "Huber", *contacts[0].LastName)
+	assert.Equal(t, "+420 111", *contacts[0].Phone)
+	assert.Equal(t, time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[0].Birthday)
+
+	assert.Equal(t, int64(2), contacts[1].Id)
+	assert.Equal(t, "Berta", *contacts[1].FirstName)
+	assert.Equal(t, "Müller", *contacts[1].LastName)
+	assert.Equal(t, "+420 222", *contacts[1].Phone)
+	assert.Equal(t, time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[1].Birthday)
+
+	assert.Equal(t, int64(3), contacts[2].Id)
+	assert.Equal(t, "Carla", *contacts[2].FirstName)
+	assert.Equal(t, "Meier", *contacts[2].LastName)
+	assert.Equal(t, "+420 333", *contacts[2].Phone)
+	assert.Equal(t, time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[2].Birthday)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetByFirstName executes a GET request for those contacts that have a first name that starts
+// with a certain pattern. It expects that the JSON for a list of contacts is returned.
+func TestGetByFirstName(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	// Define expectations on SQL statements
+	expectPreparedStatements(mock)
+	rows := mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}).
+		AddRow(1, "Aaron", "Huber", "+420 111", time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(2, "Albert", "Müller", "+420 222", time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(3, "Agathe", "Meier", "+420 333", time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC))
+	mock.ExpectQuery("SELECT \\* FROM contacts").
+		WillReturnRows(rows)
+
+	// Run test and compare results
+	recorder := runTest(db, "GET", "/contacts?firstname=A", nil)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var contacts []model.Contact
+	json.Unmarshal(recorder.Body.Bytes(), &contacts)
+	assert.Equal(t, 3, len(contacts))
+
+	assert.Equal(t, int64(1), contacts[0].Id)
+	assert.Equal(t, "Aaron", *contacts[0].FirstName)
+	assert.Equal(t, "Huber", *contacts[0].LastName)
+	assert.Equal(t, "+420 111", *contacts[0].Phone)
+	assert.Equal(t, time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[0].Birthday)
+
+	assert.Equal(t, int64(2), contacts[1].Id)
+	assert.Equal(t, "Albert", *contacts[1].FirstName)
+	assert.Equal(t, "Müller", *contacts[1].LastName)
+	assert.Equal(t, "+420 222", *contacts[1].Phone)
+	assert.Equal(t, time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[1].Birthday)
+
+	assert.Equal(t, int64(3), contacts[2].Id)
+	assert.Equal(t, "Agathe", *contacts[2].FirstName)
+	assert.Equal(t, "Meier", *contacts[2].LastName)
+	assert.Equal(t, "+420 333", *contacts[2].Phone)
+	assert.Equal(t, time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[2].Birthday)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetByLastName executes a GET request for those contacts that have a last name that starts
+// with a certain pattern. It expects that the JSON for a list of contacts is returned.
+func TestGetByLastName(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	// Define expectations on SQL statements
+	expectPreparedStatements(mock)
+	rows := mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}).
+		AddRow(1, "Aaron", "Mergentaler", "+420 111", time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(2, "Berta", "Müller", "+420 222", time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(3, "Carla", "Meier", "+420 333", time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC))
+	mock.ExpectQuery("SELECT \\* FROM contacts").
+		WillReturnRows(rows)
+
+	// Run test and compare results
+	recorder := runTest(db, "GET", "/contacts?lastname=M", nil)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var contacts []model.Contact
+	json.Unmarshal(recorder.Body.Bytes(), &contacts)
+	assert.Equal(t, 3, len(contacts))
+
+	assert.Equal(t, int64(1), contacts[0].Id)
+	assert.Equal(t, "Aaron", *contacts[0].FirstName)
+	assert.Equal(t, "Mergentaler", *contacts[0].LastName)
 	assert.Equal(t, "+420 111", *contacts[0].Phone)
 	assert.Equal(t, time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[0].Birthday)
 
@@ -200,9 +293,9 @@ func TestPost(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "POST", "/contacts", strings.NewReader(`
 		{
-			"firstname": "Erika", 
-			"lastname": "Mustermann", 
-			"phone": "+49 0815 4711", 
+			"firstname": "Erika",
+			"lastname": "Mustermann",
+			"phone": "+49 0815 4711",
 			"birthday": "1969-03-04T00:00:00Z"
 		}
 	`))
@@ -302,9 +395,9 @@ func TestPut(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "PUT", "/contacts/17", strings.NewReader(`
 		{
-			"firstname": "Rudi", 
-			"lastname": "Völler", 
-			"phone": "+49 1234567890", 
+			"firstname": "Rudi",
+			"lastname": "Völler",
+			"phone": "+49 1234567890",
 			"birthday": "1960-04-13T00:00:00Z"
 		}
 	`))

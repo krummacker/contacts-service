@@ -24,6 +24,10 @@ var insert *sqlx.NamedStmt
 // selectAll is a prepared statement for selecting all contacts.
 var selectAll *sqlx.Stmt
 
+// selectName is a prepared statement for selecting contacts that have first or last names
+// starting with certain values..
+var selectNames *sqlx.Stmt
+
 // selectWhereId is a prepared statement for selecting contacts with a given id.
 var selectWhereId *sqlx.Stmt
 
@@ -62,6 +66,12 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	selectNames, err = db.Preparex(`
+		SELECT * FROM contacts WHERE firstname LIKE ? AND lastname LIKE ?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
 	selectWhereId, err = db.Preparex(`
 		SELECT * FROM contacts WHERE id=?
 	`)
@@ -85,7 +95,7 @@ func SetupHttpRouter() *gin.Engine {
 	} else {
 		router = gin.Default()
 	}
-	router.GET("/contacts", findAllContacts)
+	router.GET("/contacts", findContacts)
 	router.POST("/contacts", createContact)
 	router.GET("/contacts/:id", findContactByID)
 	router.PUT("/contacts/:id", updateContactByID)
@@ -93,13 +103,24 @@ func SetupHttpRouter() *gin.Engine {
 	return router
 }
 
-// findAllContacts responds with the list of all contacts as JSON.
+// findContacts responds with a list of contacts as JSON. It supports URL parameters that can
+// filter based on the beginning of first name or last name.
 //
-// Example REST API call:
-// > curl http://localhost:8080/contacts
-func findAllContacts(c *gin.Context) {
+// REST API calls:
+//
+//	> curl "http://localhost:8080/contacts"
+//	> curl "http://localhost:8080/contacts?firstname=Ji"
+//	> curl "http://localhost:8080/contacts?lastname=Smi"
+func findContacts(c *gin.Context) {
 	var contacts []model.Contact
-	err := selectAll.Select(&contacts)
+	var err error
+	first := c.Query("firstname")
+	last := c.Query("lastname")
+	if first == "" && last == "" {
+		err = selectAll.Select(&contacts)
+	} else {
+		err = selectNames.Select(&contacts, first+"%", last+"%")
+	}
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -118,7 +139,8 @@ func findAllContacts(c *gin.Context) {
 // - If birthday is not specified then January 1 in the year 1 AD is stored.
 //
 // Example REST API call:
-// > curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"firstname": "Hans", "lastname": "Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
+//
+//	> curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"firstname": "Hans", "lastname": "Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
 func createContact(c *gin.Context) {
 	var newContact model.Contact
 	if err := c.BindJSON(&newContact); err != nil {
@@ -141,7 +163,8 @@ func createContact(c *gin.Context) {
 // then returns that contact as a response.
 //
 // Example REST API call:
-// > curl http://localhost:8080/contacts/56
+//
+//	> curl http://localhost:8080/contacts/56
 func findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
@@ -167,8 +190,9 @@ func findContactByID(c *gin.Context) {
 // new version of the contact.
 //
 // Example REST API calls:
-// > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"phone": "81970"}'
-// > curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
+//
+//	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"phone": "81970"}'
+//	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
 func updateContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
@@ -238,7 +262,8 @@ func updateContactByID(c *gin.Context) {
 // from the database.
 //
 // Example REST API call:
-// > curl http://localhost:8080/contacts/56 --request "DELETE"
+//
+//	> curl http://localhost:8080/contacts/56 --request "DELETE"
 func deleteContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, error := strconv.Atoi(id)

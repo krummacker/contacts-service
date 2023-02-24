@@ -28,8 +28,8 @@ func main() {
 		panic(err)
 	}
 	fmt.Println()
-	fmt.Println("  Elements      POST       PUT       GET    DELETE ")
-	fmt.Println("---------------------------------------------------")
+	fmt.Println("  Elements      POST       PUT       GET     FIRST      LAST      BOTH    DELETE ")
+	fmt.Println("---------------------------------------------------------------------------------")
 	sizes := []int{1000, 5000, 10000, 50000, 100000}
 	for _, loops := range sizes {
 		firstID, _ := sendPostRequest(bytes.NewReader(CreateRandomContactJson()))
@@ -58,6 +58,40 @@ func main() {
 				return sendPutGetDeleteRequest(id, http.MethodGet, nil)
 			}
 			callInLoop(firstID, loops, f)
+		}
+		{
+			// GET requests specifying the beginning of the first name
+			var duration int64
+			for i := 0; i < loops/1000; i++ {
+				firstNameStart := randomgen.PickFirstName()[:3]
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?firstname="+firstNameStart, serverPort)
+				_, d := sendRequest(http.MethodGet, requestURL, nil)
+				duration += d
+			}
+			fmt.Printf("%10d", duration/int64(loops))
+		}
+		{
+			// GET requests specifying the beginning of the last name
+			var duration int64
+			for i := 0; i < loops/1000; i++ {
+				lastNameStart := randomgen.PickLastName()[:3]
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname="+lastNameStart, serverPort)
+				_, d := sendRequest(http.MethodGet, requestURL, nil)
+				duration += d
+			}
+			fmt.Printf("%10d", duration/int64(loops))
+		}
+		{
+			// GET requests specifying the beginning of both the first and the last name
+			var duration int64
+			for i := 0; i < loops/1000; i++ {
+				firstNameStart := randomgen.PickFirstName()[:3]
+				lastNameStart := randomgen.PickLastName()[:3]
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname="+lastNameStart+"&firstname="+firstNameStart, serverPort)
+				_, d := sendRequest(http.MethodGet, requestURL, nil)
+				duration += d
+			}
+			fmt.Printf("%10d", duration/int64(loops))
 		}
 		{
 			// DELETE requests
