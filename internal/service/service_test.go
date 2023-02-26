@@ -29,11 +29,29 @@ func createMockObjects(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 // expectPreparedStatements instructs the mock object to expect that several statements are being
 // prepared.
 func expectPreparedStatements(mock sqlmock.Sqlmock) {
-	mock.ExpectPrepare("INSERT INTO contacts")
-	mock.ExpectPrepare("SELECT \\* FROM contacts")
-	mock.ExpectPrepare("SELECT \\* FROM contacts WHERE firstname LIKE \\? AND lastname LIKE \\?")
-	mock.ExpectPrepare("SELECT \\* FROM contacts WHERE id=?")
-	mock.ExpectPrepare("DELETE FROM contacts WHERE id=?")
+	mock.ExpectPrepare(`INSERT INTO contacts`)
+	mock.ExpectPrepare(`SELECT \* FROM contacts`)
+	mock.ExpectPrepare(`
+		SELECT \*
+		FROM contacts
+		WHERE firstname LIKE \?
+		    AND lastname LIKE \?
+	`)
+	mock.ExpectPrepare(`
+		SELECT \* 
+		FROM contacts 
+		WHERE MONTH\(birthday\) = \? AND DAY\(birthday\) = \?
+	`)
+	mock.ExpectPrepare(`
+		SELECT \* 
+		FROM contacts 
+		WHERE firstname LIKE \? 
+			AND lastname LIKE \? 
+			AND MONTH\(birthday\) = \? 
+			AND DAY\(birthday\) = \?
+	`)
+	mock.ExpectPrepare(`SELECT \* FROM contacts WHERE id = \?`)
+	mock.ExpectPrepare(`DELETE FROM contacts WHERE id = \?`)
 }
 
 // expectSingleRowSelect instructs the mock object to expect that a select statement for a single
@@ -199,6 +217,90 @@ func TestGetByLastName(t *testing.T) {
 	assert.Equal(t, "+420 333", *contacts[2].Phone)
 	assert.Equal(t, time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[2].Birthday)
 
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetByBirthday executes a GET request for those contacts with the birthday specified as
+// argument. It expects that the JSON for a list of contacts is returned.
+func TestGetByBirthday(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	// Define expectations on SQL statements
+	expectPreparedStatements(mock)
+	rows := mock.NewRows([]string{"id", "firstname", "lastname", "phone", "birthday"}).
+		AddRow(1, "Aaron", "Mergentaler", "+420 111", time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(2, "Berta", "Müller", "+420 222", time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)).
+		AddRow(3, "Carla", "Meier", "+420 333", time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC))
+	mock.ExpectQuery("SELECT \\* FROM contacts").
+		WillReturnRows(rows)
+
+	// Run test and compare results
+	recorder := runTest(db, "GET", "/contacts?birthday=01-01", nil)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var contacts []model.Contact
+	json.Unmarshal(recorder.Body.Bytes(), &contacts)
+	assert.Equal(t, 3, len(contacts))
+
+	assert.Equal(t, int64(1), contacts[0].Id)
+	assert.Equal(t, "Aaron", *contacts[0].FirstName)
+	assert.Equal(t, "Mergentaler", *contacts[0].LastName)
+	assert.Equal(t, "+420 111", *contacts[0].Phone)
+	assert.Equal(t, time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[0].Birthday)
+
+	assert.Equal(t, int64(2), contacts[1].Id)
+	assert.Equal(t, "Berta", *contacts[1].FirstName)
+	assert.Equal(t, "Müller", *contacts[1].LastName)
+	assert.Equal(t, "+420 222", *contacts[1].Phone)
+	assert.Equal(t, time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[1].Birthday)
+
+	assert.Equal(t, int64(3), contacts[2].Id)
+	assert.Equal(t, "Carla", *contacts[2].FirstName)
+	assert.Equal(t, "Meier", *contacts[2].LastName)
+	assert.Equal(t, "+420 333", *contacts[2].Phone)
+	assert.Equal(t, time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC), *contacts[2].Birthday)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetByBirthdayInvalidParameterValue executes a GET request for contacts with the birthday.
+// However it provides garbage without a '-' sign as parameter value. It expects that the HTTP
+// request is answered with the BAD REQUEST status code. It also expects that we do not reach out
+// to the database in the first place.
+func TestGetByBirthdayInvalidParameterValue(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	// Define expectations on SQL statements
+	expectPreparedStatements(mock)
+
+	// Run test and compare results
+	recorder := runTest(db, "GET", "/contacts?birthday=GARBAGE", nil)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetByBirthdayInvalidMonth executes a GET request for contacts with the birthday. However it
+// provides a wrong parameter value with the month as name and not a number. It expects that the
+// HTTP request is answered with the BAD REQUEST status code. It also expects that we do not reach
+// out to the database in the first place.
+func TestGetByBirthdayInvalidMonth(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	// Define expectations on SQL statements
+	expectPreparedStatements(mock)
+
+	// Run test and compare results
+	recorder := runTest(db, "GET", "/contacts?birthday=Nov-29", nil)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}

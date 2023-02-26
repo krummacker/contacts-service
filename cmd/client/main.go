@@ -28,8 +28,8 @@ func main() {
 		panic(err)
 	}
 	fmt.Println()
-	fmt.Println("  Elements      POST       PUT       GET     FIRST      LAST      BOTH    DELETE ")
-	fmt.Println("---------------------------------------------------------------------------------")
+	fmt.Println("  Elements      POST       PUT       GET     FIRST      LAST      BOTH  BIRTHDAY    DELETE ")
+	fmt.Println("-------------------------------------------------------------------------------------------")
 	sizes := []int{1000, 5000, 10000, 50000, 100000}
 	for _, loops := range sizes {
 		firstID, _ := sendPostRequest(bytes.NewReader(CreateRandomContactJson()))
@@ -88,6 +88,19 @@ func main() {
 				firstNameStart := randomgen.PickFirstName()[:3]
 				lastNameStart := randomgen.PickLastName()[:3]
 				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname="+lastNameStart+"&firstname="+firstNameStart, serverPort)
+				_, d := sendRequest(http.MethodGet, requestURL, nil)
+				duration += d
+			}
+			fmt.Printf("%10d", duration/int64(loops))
+		}
+		{
+			// GET requests specifying a random birthday
+			// Adding a firstname argument to not make the result list too long (1/7000th)
+			var duration int64
+			for i := 0; i < loops/1000; i++ {
+				month := rand.Intn(12) + 1
+				day := rand.Intn(28) + 1
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?birthday%d-%d&firstname=V", serverPort, month, day)
 				_, d := sendRequest(http.MethodGet, requestURL, nil)
 				duration += d
 			}

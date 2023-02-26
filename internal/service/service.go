@@ -25,8 +25,16 @@ var insert *sqlx.NamedStmt
 var selectAll *sqlx.Stmt
 
 // selectName is a prepared statement for selecting contacts that have first or last names
-// starting with certain values..
+// starting with certain values.
 var selectNames *sqlx.Stmt
+
+// selectBirthday is a prepared statement for selecting contacts that have birthday on a specified
+// day and month.
+var selectBirthday *sqlx.Stmt
+
+// selectNamesAndBirthday is a prepared statement for searching for a combination of names and
+// birthday.
+var selectNamesAndBirthday *sqlx.Stmt
 
 // selectWhereId is a prepared statement for selecting contacts with a given id.
 var selectWhereId *sqlx.Stmt
@@ -67,19 +75,42 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		log.Fatal(err)
 	}
 	selectNames, err = db.Preparex(`
-		SELECT * FROM contacts WHERE firstname LIKE ? AND lastname LIKE ?
+		SELECT *
+		FROM contacts
+		WHERE firstname LIKE ?
+			AND lastname LIKE ?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	selectBirthday, err = db.Preparex(`
+		SELECT *
+		FROM contacts
+		WHERE MONTH(birthday) = ?
+		    AND DAY(birthday) = ?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	selectNamesAndBirthday, err = db.Preparex(`
+		SELECT *
+		FROM contacts
+		WHERE firstname LIKE ?
+			AND lastname LIKE ?
+			AND MONTH(birthday) = ?
+			AND DAY(birthday) = ?
 	`)
 	if err != nil {
 		log.Fatal(err)
 	}
 	selectWhereId, err = db.Preparex(`
-		SELECT * FROM contacts WHERE id=?
+		SELECT * FROM contacts WHERE id = ?
 	`)
 	if err != nil {
 		log.Fatal(err)
 	}
 	deleteWhereId, err = db.Preparex(`
-		DELETE FROM contacts WHERE id=?
+		DELETE FROM contacts WHERE id = ?
 	`)
 	if err != nil {
 		log.Fatal(err)
@@ -104,22 +135,53 @@ func SetupHttpRouter() *gin.Engine {
 }
 
 // findContacts responds with a list of contacts as JSON. It supports URL parameters that can
-// filter based on the beginning of first name or last name.
+// filter based on their value.
+//
+// The URL parameters 'firstname' and 'lastname' are interpreted as the beginning of the first name
+// or last name of the contact.
+//
+// The URL parameter 'birthday' consists of a month part and a day part, separated by '-'. The call
+// returns all contacts that have their birthday on this month and day, regardless of the year.
 //
 // REST API calls:
 //
 //	> curl "http://localhost:8080/contacts"
 //	> curl "http://localhost:8080/contacts?firstname=Ji"
 //	> curl "http://localhost:8080/contacts?lastname=Smi"
+//	> curl "http://localhost:8080/contacts?birthday=11-29"
 func findContacts(c *gin.Context) {
 	var contacts []model.Contact
 	var err error
 	first := c.Query("firstname")
 	last := c.Query("lastname")
-	if first == "" && last == "" {
-		err = selectAll.Select(&contacts)
-	} else {
+	birthday := c.Query("birthday")
+	var bday int
+	var bmonth int
+	if birthday != "" {
+		before, after, found := strings.Cut(birthday, "-")
+		if !found {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return
+		}
+		bmonth, err = strconv.Atoi(before)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return
+		}
+		bday, err = strconv.Atoi(after)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return
+		}
+	}
+	if (first != "" || last != "") && birthday != "" {
+		err = selectNamesAndBirthday.Select(&contacts, first+"%", last+"%", bmonth, bday)
+	} else if (first != "" || last != "") && birthday == "" {
 		err = selectNames.Select(&contacts, first+"%", last+"%")
+	} else if first == "" && last == "" && birthday != "" {
+		err = selectBirthday.Select(&contacts, bmonth, bday)
+	} else {
+		err = selectAll.Select(&contacts)
 	}
 	if err != nil {
 		log.Panicln(err)
