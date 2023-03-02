@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
@@ -14,10 +13,10 @@ func main() {
 	sqlDB := service.CreateDatabase()
 	service.SetupDatabaseWrapper(sqlDB)
 	router := service.SetupHttpRouter()
-	_, err := strconv.Atoi(os.Getenv("PORT"))
-	if err != nil {
+	strconv.Atoi(os.Getenv("PORT"))
+	/*if err != nil {
 		fmt.Println("could not parse PORT env variable", err)
 		panic(err)
-	}
+	}*/
 	router.Run(":" + os.Getenv("PORT"))
 }
