@@ -61,13 +61,13 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 	db = sqlx.NewDb(sqlDB, "mysql")
 
 	// Prepared statements offer a significant speed increase if executed many times.
-	insert, err = db.PrepareNamed(`
+	insert, _ = db.PrepareNamed(`
 		INSERT INTO contacts (firstname, lastname, phone, birthday)
 		VALUES (:firstname, :lastname, :phone, :birthday)
 	`)
-	if err != nil {
+	/*if err != nil {
 		log.Fatal(err)
-	}
+	}*/
 	selectAll, err = db.Preparex(`
 		SELECT * FROM contacts
 	`)
