@@ -2,6 +2,10 @@ image: golang:latest
 
 stages:
   - check
+  - test
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
 
 check:
   stage: check
