@@ -20,3 +20,4 @@ report:
   image: python:latest
   script:
     - python --version
+    - find .
