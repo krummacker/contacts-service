@@ -1,10 +1,8 @@
 stages:
-  - check
   - test
-  - report
 
 check:
-  stage: check
+  stage: test
   image: golang:latest
   script:
     - go version
@@ -14,10 +12,3 @@ check:
 # test stage
 include:
   - template: Jobs/SAST.gitlab-ci.yml
-
-report:
-  stage: report
-  image: python:latest
-  script:
-    - python --version
-    - find .
