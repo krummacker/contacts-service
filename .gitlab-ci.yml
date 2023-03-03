@@ -1,15 +1,22 @@
-image: golang:latest
-
 stages:
   - check
   - test
-
-include:
-  - template: Jobs/SAST.gitlab-ci.yml
+  - report
 
 check:
   stage: check
+  image: golang:latest
   script:
     - go version
     - go vet $(go list ./...)
     - go test -v $(go list ./...)
+
+# test stage
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+
+report:
+  stage: report
+  image: python:latest
+  script:
+    - python --version
