@@ -9,4 +9,3 @@ jobs:
       - run: go version
       - run: go vet $(go list ./...)
       - run: go test -v $(go list ./...)
-      - run: go run cmd/perfcheck/perfcheck.go

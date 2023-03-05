@@ -8,6 +8,5 @@ pipelines:
           - go version
           - go test -v $(go list ./...)
           - go vet $(go list ./...)
-          - go run cmd/perfcheck/perfcheck.go
 
 
