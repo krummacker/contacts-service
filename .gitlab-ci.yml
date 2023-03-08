@@ -9,6 +9,13 @@ check:
     - go vet $(go list ./...)
     - go test -v $(go list ./...)
 
-# test stage
+trivy:
+  stage: test
+  image: curlimages/curl:latest
+  script:
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .
+    - ./trivy fs .
+
+# included in test stage
 include:
   - template: Jobs/SAST.gitlab-ci.yml
