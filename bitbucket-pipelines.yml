@@ -5,6 +5,7 @@ pipelines:
     - step:
         name: Check
         script:
+          - uname -a
           - go version
           - go test -v $(go list ./...)
           - go vet $(go list ./...)
