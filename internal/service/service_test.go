@@ -13,7 +13,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/model"
 )
 
 // createMockObjects builds a mock database handle and a mock object for defining our expected SQL

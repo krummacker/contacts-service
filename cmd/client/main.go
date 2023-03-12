@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
-	"gitlab.com/dirk.krummacker/contacts-service/pkg/randomgen"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/model"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/randomgen"
 )
 
 // serverPort is the port of the server that this client will contact.

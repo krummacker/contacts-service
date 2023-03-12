@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"gitlab.com/dirk.krummacker/contacts-service/pkg/model"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/model"
 )
 
 // db is a handle to the database.
