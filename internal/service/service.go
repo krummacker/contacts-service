@@ -15,6 +15,9 @@ import (
 	"gitlab.com/dirk.krummacker/contacts-service/internal/model"
 )
 
+// maxInt is the largest possible int value
+const maxInt = int(^uint(0) >> 1)
+
 // db is a handle to the database.
 var db *sqlx.DB
 
@@ -69,7 +72,7 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		log.Fatal(err)
 	}
 	selectAll, err = db.Preparex(`
-		SELECT * FROM contacts
+		SELECT * FROM contacts ORDER BY id LIMIT ? OFFSET ?
 	`)
 	if err != nil {
 		log.Fatal(err)
@@ -79,6 +82,9 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		FROM contacts
 		WHERE firstname LIKE ?
 			AND lastname LIKE ?
+		ORDER BY id
+		LIMIT ?
+		OFFSET ?
 	`)
 	if err != nil {
 		log.Fatal(err)
@@ -88,7 +94,10 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		FROM contacts
 		WHERE MONTH(birthday) = ?
 		    AND DAY(birthday) = ?
-	`)
+		ORDER BY id
+		LIMIT ?
+		OFFSET ?
+		`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,7 +108,10 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 			AND lastname LIKE ?
 			AND MONTH(birthday) = ?
 			AND DAY(birthday) = ?
-	`)
+		ORDER BY id
+		LIMIT ?
+		OFFSET ?
+		`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -174,14 +186,34 @@ func findContacts(c *gin.Context) {
 			return
 		}
 	}
-	if (first != "" || last != "") && birthday != "" {
-		err = selectNamesAndBirthday.Select(&contacts, first+"%", last+"%", bmonth, bday)
-	} else if (first != "" || last != "") && birthday == "" {
-		err = selectNames.Select(&contacts, first+"%", last+"%")
-	} else if first == "" && last == "" && birthday != "" {
-		err = selectBirthday.Select(&contacts, bmonth, bday)
+	limit := c.Query("limit")
+	offset := c.Query("offset")
+	if limit != "" {
+		limitAsInt, errConv := strconv.Atoi(limit)
+		if errConv != nil || limitAsInt < 1 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid limit parameter"})
+			return
+		}
 	} else {
-		err = selectAll.Select(&contacts)
+		limit = strconv.Itoa(maxInt)
+	}
+	if offset != "" {
+		offsetAsIt, errConv := strconv.Atoi(offset)
+		if errConv != nil || offsetAsIt < 0 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid offset parameter"})
+			return
+		}
+	} else {
+		offset = "0"
+	}
+	if (first != "" || last != "") && birthday != "" {
+		err = selectNamesAndBirthday.Select(&contacts, first+"%", last+"%", bmonth, bday, limit, offset)
+	} else if (first != "" || last != "") && birthday == "" {
+		err = selectNames.Select(&contacts, first+"%", last+"%", limit, offset)
+	} else if first == "" && last == "" && birthday != "" {
+		err = selectBirthday.Select(&contacts, bmonth, bday, limit, offset)
+	} else {
+		err = selectAll.Select(&contacts, limit, offset)
 	}
 	if err != nil {
 		log.Panicln(err)

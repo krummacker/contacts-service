@@ -60,47 +60,50 @@ func main() {
 			callInLoop(firstID, loops, f)
 		}
 		{
-			// GET requests specifying the beginning of the first name
+			// GET requests specifying the beginning of the first name.
+			// The result set is limited to 20 rows to not account for data transfer costs.
 			var duration int64
 			for i := 0; i < loops/1000; i++ {
 				firstNameStart := randomgen.PickFirstName()[:3]
-				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?firstname="+firstNameStart, serverPort)
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?firstname=%s&limit=20", serverPort, firstNameStart)
 				_, d := sendRequest(http.MethodGet, requestURL, nil)
 				duration += d
 			}
 			fmt.Printf("%10d", duration/int64(loops))
 		}
 		{
-			// GET requests specifying the beginning of the last name
+			// GET requests specifying the beginning of the last name.
+			// The result set is limited to 20 rows to not account for data transfer costs.
 			var duration int64
 			for i := 0; i < loops/1000; i++ {
 				lastNameStart := randomgen.PickLastName()[:3]
-				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname="+lastNameStart, serverPort)
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname=%s&limit=20", serverPort, lastNameStart)
 				_, d := sendRequest(http.MethodGet, requestURL, nil)
 				duration += d
 			}
 			fmt.Printf("%10d", duration/int64(loops))
 		}
 		{
-			// GET requests specifying the beginning of both the first and the last name
+			// GET requests specifying the beginning of both the first and the last name.
+			// The result set is limited to 20 rows to not account for data transfer costs.
 			var duration int64
 			for i := 0; i < loops/1000; i++ {
 				firstNameStart := randomgen.PickFirstName()[:3]
 				lastNameStart := randomgen.PickLastName()[:3]
-				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname="+lastNameStart+"&firstname="+firstNameStart, serverPort)
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?lastname=%s&firstname=%s&limit=20", serverPort, lastNameStart, firstNameStart)
 				_, d := sendRequest(http.MethodGet, requestURL, nil)
 				duration += d
 			}
 			fmt.Printf("%10d", duration/int64(loops))
 		}
 		{
-			// GET requests specifying a random birthday
-			// Adding a firstname argument to not make the result list too long (1/7000th)
+			// GET requests specifying a random birthday.
+			// The result set is limited to 20 rows to not account for data transfer costs.
 			var duration int64
 			for i := 0; i < loops/1000; i++ {
 				month := rand.Intn(12) + 1
 				day := rand.Intn(28) + 1
-				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?birthday%d-%d&firstname=V", serverPort, month, day)
+				requestURL := fmt.Sprintf("http://localhost:%d/contacts/?birthday%d-%d&limit=20", serverPort, month, day)
 				_, d := sendRequest(http.MethodGet, requestURL, nil)
 				duration += d
 			}
