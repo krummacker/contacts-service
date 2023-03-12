@@ -147,7 +147,7 @@ func SetupHttpRouter() *gin.Engine {
 }
 
 // findContacts responds with a list of contacts as JSON. It supports URL parameters that can
-// filter based on their value.
+// filter based on their value. The list is sorted ascending by ID.
 //
 // The URL parameters 'firstname' and 'lastname' are interpreted as the beginning of the first name
 // or last name of the contact.
@@ -155,62 +155,33 @@ func SetupHttpRouter() *gin.Engine {
 // The URL parameter 'birthday' consists of a month part and a day part, separated by '-'. The call
 // returns all contacts that have their birthday on this month and day, regardless of the year.
 //
+// The URL parameter 'limit' specifies how many contacts matching the search criteria are returned.
+// The URL parameter 'offset' specifies how many items from the sorted list of results are skipped
+// in the beginning. Together with the 'limit' parameter, one can implement search result paging.
+//
 // REST API calls:
 //
 //	> curl "http://localhost:8080/contacts"
+//	> curl "http://localhost:8080/contacts?limit=20&offset=60"
 //	> curl "http://localhost:8080/contacts?firstname=Ji"
 //	> curl "http://localhost:8080/contacts?lastname=Smi"
 //	> curl "http://localhost:8080/contacts?birthday=11-29"
 func findContacts(c *gin.Context) {
+	first, last, bday, bmonth, successNameAndBirthday := parseNameAndBirthday(c)
+	if !successNameAndBirthday {
+		return
+	}
+	limit, offset, successLimitAndOffset := parseLimitAndOffset(c)
+	if !successLimitAndOffset {
+		return
+	}
 	var contacts []model.Contact
 	var err error
-	first := c.Query("firstname")
-	last := c.Query("lastname")
-	birthday := c.Query("birthday")
-	var bday int
-	var bmonth int
-	if birthday != "" {
-		before, after, found := strings.Cut(birthday, "-")
-		if !found {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
-			return
-		}
-		bmonth, err = strconv.Atoi(before)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
-			return
-		}
-		bday, err = strconv.Atoi(after)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
-			return
-		}
-	}
-	limit := c.Query("limit")
-	offset := c.Query("offset")
-	if limit != "" {
-		limitAsInt, errConv := strconv.Atoi(limit)
-		if errConv != nil || limitAsInt < 1 {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid limit parameter"})
-			return
-		}
-	} else {
-		limit = strconv.Itoa(maxInt)
-	}
-	if offset != "" {
-		offsetAsIt, errConv := strconv.Atoi(offset)
-		if errConv != nil || offsetAsIt < 0 {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid offset parameter"})
-			return
-		}
-	} else {
-		offset = "0"
-	}
-	if (first != "" || last != "") && birthday != "" {
+	if (first != "" || last != "") && (bmonth != 0 || bday != 0) {
 		err = selectNamesAndBirthday.Select(&contacts, first+"%", last+"%", bmonth, bday, limit, offset)
-	} else if (first != "" || last != "") && birthday == "" {
+	} else if (first != "" || last != "") && bmonth == 0 && bday == 0 {
 		err = selectNames.Select(&contacts, first+"%", last+"%", limit, offset)
-	} else if first == "" && last == "" && birthday != "" {
+	} else if first == "" && last == "" && (bmonth != 0 || bday != 0) {
 		err = selectBirthday.Select(&contacts, bmonth, bday, limit, offset)
 	} else {
 		err = selectAll.Select(&contacts, limit, offset)
@@ -223,6 +194,59 @@ func findContacts(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusOK, contacts)
 	}
+}
+
+// parseNameAndBirthday inspects the URL parameters and determines values for first name, last
+// name, day and month of the contact's birthday.
+func parseNameAndBirthday(c *gin.Context) (firstname string, lastname string, bday int, bmonth int, success bool) {
+	firstname = c.Query("firstname")
+	lastname = c.Query("lastname")
+	birthday := c.Query("birthday")
+	if birthday != "" {
+		var err error
+		before, after, found := strings.Cut(birthday, "-")
+		if !found {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return "", "", 0, 0, false
+		}
+		bmonth, err = strconv.Atoi(before)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return "", "", 0, 0, false
+		}
+		bday, err = strconv.Atoi(after)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return "", "", 0, 0, false
+		}
+	}
+	return firstname, lastname, bday, bmonth, true
+}
+
+// parseLimitAndOffset inspects the URL parameters and determines values for limit and offset of
+// the result set.
+func parseLimitAndOffset(c *gin.Context) (limit string, offset string, success bool) {
+	limit = c.Query("limit")
+	offset = c.Query("offset")
+	if limit != "" {
+		limitAsInt, errConv := strconv.Atoi(limit)
+		if errConv != nil || limitAsInt < 1 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid limit parameter"})
+			return "", "", false
+		}
+	} else {
+		limit = strconv.Itoa(maxInt)
+	}
+	if offset != "" {
+		offsetAsIt, errConv := strconv.Atoi(offset)
+		if errConv != nil || offsetAsIt < 0 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid offset parameter"})
+			return "", "", false
+		}
+	} else {
+		offset = "0"
+	}
+	return limit, offset, true
 }
 
 // createContact inserts the contact specified in the request's JSON into the database. It responds
