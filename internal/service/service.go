@@ -97,7 +97,7 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		ORDER BY id
 		LIMIT ?
 		OFFSET ?
-		`)
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 		ORDER BY id
 		LIMIT ?
 		OFFSET ?
-		`)
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
