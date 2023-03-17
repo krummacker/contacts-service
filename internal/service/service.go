@@ -17,6 +17,7 @@ import (
 
 // Added to test the secrets analyzer
 const password = "larry2000"
+const gitlab_token = "glpat-JUST20LETTERSANDNUMB"
 
 // maxInt is the largest possible int value
 const maxInt = int(^uint(0) >> 1)
