@@ -19,7 +19,5 @@ func main() {
 		fmt.Println("could not parse PORT env variable", err)
 		panic(err)
 	}
-	if 1 == 1 {
-		router.Run(":" + os.Getenv("PORT"))
-	}
+	router.Run(":" + os.Getenv("PORT"))
 }
