@@ -9,18 +9,17 @@ check:
     - go version
     - go vet $(go list ./...)
     - go install honnef.co/go/tools/cmd/staticcheck@latest
-#    - $GOPATH/bin/staticcheck ./...
     - staticcheck ./...
     - go test -v $(go list ./...)
 
-# trivy:
-#   stage: test
-#   image: curlimages/curl:latest
-#   script:
-#     - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .
-#     - ./trivy fs .
+trivy:
+  stage: test
+  image: curlimages/curl:latest
+  script:
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .
+    - ./trivy fs .
 
-# # jobs run in test stage
-# include:
-#   - template: Jobs/SAST.gitlab-ci.yml
-#   - template: Jobs/Secret-Detection.gitlab-ci.yml
+# jobs run in test stage
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
