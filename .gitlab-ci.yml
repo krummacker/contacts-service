@@ -8,7 +8,8 @@ check:
     - uname -a
     - go version
     - go vet $(go list ./...)
-    - apt install go-staticcheck
+    - go install honnef.co/go/tools/cmd/staticcheck@latest
+    - $GOPATH/bin/staticcheck ./...
     - staticcheck ./...
     - go test -v $(go list ./...)
 
