@@ -8,6 +8,7 @@ check:
     - uname -a
     - go version
     - go vet $(go list ./...)
+    - staticcheck ./...
     - go test -v $(go list ./...)
 
 trivy:
