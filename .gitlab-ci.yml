@@ -6,11 +6,14 @@ perftest:
   image: golang:latest
   services:
     - mysql:latest
+  variables:
+    MYSQL_DATABASE: test
+    MYSQL_ROOT_PASSWORD: mysql
   script:
     - uname -a
     - go version
     - cd cmd/service
-    - PORT=8080 DBUSER=dirk@mysql DBPWD=bullo92 go run main.go
+    - PORT=8080 DBUSER=dirk@mysql DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
 
 # check:
 #   stage: test
