@@ -9,8 +9,9 @@ variables:
   MYSQL_ROOT_PASSWORD: mysql
 
 setupdb:
-  image: mysql
+  image: alpine:latest
   script:
+  - apk install mysql
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
