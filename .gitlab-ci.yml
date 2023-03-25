@@ -12,12 +12,13 @@ setupdb:
   image: mysql
   script:
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
-
-select:
-  needs: ['setupdb']
-  image: mysql
-  script:
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+
+# select:
+#   needs: ['setupdb']
+#   image: mysql
+#   script:
+#   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
 # perftest:
 #   needs: ['setupdb']
