@@ -11,17 +11,23 @@ variables:
 setupdb:
   image: mysql
   script:
-  - cat scripts/database.sql | mysql --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+  - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
-perftest:
+select:
   needs: ['setupdb']
-  stage: test
-  image: golang:latest
+  image: mysql
   script:
-    - uname -a
-    - go version
-    - cd cmd/service
-    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
+  - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+
+# perftest:
+#   needs: ['setupdb']
+#   stage: test
+#   image: golang:latest
+#   script:
+#     - uname -a
+#     - go version
+#     - cd cmd/service
+#     - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
 
 # check:
 #   stage: test
