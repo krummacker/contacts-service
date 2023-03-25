@@ -12,7 +12,7 @@ setupdb:
   image: ubuntu:latest
   script:
   - uname -a
-  - apt install mysql
+  - apt install mysql-server
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
