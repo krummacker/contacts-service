@@ -9,12 +9,15 @@ variables:
   MYSQL_ROOT_PASSWORD: mysql
 
 setupdb:
-  image: alpine:latest
+  image: mysql:latest
   script:
+  - uname -a
   - apk update
-  - apk add mysql mysql-client
+  - apk add go
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+  - go version
+
 
 # select:
 #   needs: ['setupdb']
