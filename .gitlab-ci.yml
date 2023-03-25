@@ -8,29 +8,29 @@ variables:
   MYSQL_DATABASE: test
   MYSQL_ROOT_PASSWORD: mysql
 
-perftest:
-  stage: test
-  image: ubuntu:latest
-  script:
-    - uname -a
-    - apt update
-    - apt-get install -y mysql-server golang-go
-    - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
-    - echo "describe contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
-    - go version
-    - cd cmd/service
-    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
-
-# check:
+# perftest:
 #   stage: test
-#   image: golang:latest
+#   image: ubuntu:latest
 #   script:
 #     - uname -a
+#     - apt update
+#     - apt-get install -y mysql-server golang-go
+#     - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+#     - echo "describe contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 #     - go version
-#     - go vet $(go list ./...)
-#     - go install honnef.co/go/tools/cmd/staticcheck@latest
-#     - staticcheck ./...
-#     - go test -v $(go list ./...)
+#     - cd cmd/service
+#     - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
+
+check:
+  stage: test
+  image: golang:latest
+  script:
+    - uname -a
+    - go version
+    - go vet $(go list ./...)
+    - go install honnef.co/go/tools/cmd/staticcheck@latest
+    - staticcheck ./...
+    - go test -v $(go list ./...)
 
 # trivy:
 #   stage: test
