@@ -14,7 +14,7 @@ perftest:
   script:
     - uname -a
     - apt update
-    - apt-get install -y mysql-server golang-go
+    - apt-get install -y mysql-server golang-go git
     - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
     - echo "describe contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
     - go version
