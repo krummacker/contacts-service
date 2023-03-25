@@ -11,7 +11,8 @@ variables:
 setupdb:
   image: alpine:latest
   script:
-  - apk install mysql
+  - apk update
+  - apk add mysql-client
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
