@@ -9,15 +9,12 @@ variables:
   MYSQL_ROOT_PASSWORD: mysql
 
 setupdb:
-  image: mysql:latest
+  image: ubuntu:latest
   script:
   - uname -a
-  - apk update
-  - apk add go
+  - apt install mysql-client
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
   - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
-  - go version
-
 
 # select:
 #   needs: ['setupdb']
