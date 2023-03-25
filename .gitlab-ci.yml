@@ -13,9 +13,9 @@ setupdb:
   script:
   - uname -a
   - apt update
-  - apt-get install -y mysql-server
+  - apt-get install -y mysql-server go
   - cat scripts/database.sql | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
-  - echo "select * from contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+  - echo "describe contacts" | mysql -v --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
 
 # select:
 #   needs: ['setupdb']
