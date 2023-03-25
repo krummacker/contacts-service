@@ -13,7 +13,7 @@ perftest:
     - uname -a
     - go version
     - cd cmd/service
-    - PORT=8080 DBUSER=dirk@mysql DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
+    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
 
 # check:
 #   stage: test
