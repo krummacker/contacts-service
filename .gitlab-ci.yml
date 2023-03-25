@@ -1,14 +1,21 @@
 stages:
   - test
 
+services:
+  - mysql:latest
+variables:
+  MYSQL_DATABASE: test
+  MYSQL_ROOT_PASSWORD: mysql
+
+connect:
+  image: mysql
+  script:
+  - echo "SELECT 'OK';" | mysql --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+
 perftest:
+  needs: ['connect']
   stage: test
   image: golang:latest
-  services:
-    - mysql:latest
-  variables:
-    MYSQL_DATABASE: test
-    MYSQL_ROOT_PASSWORD: mysql
   script:
     - uname -a
     - go version
