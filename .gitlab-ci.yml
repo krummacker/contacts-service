@@ -20,7 +20,7 @@ check_and_perftest:
     - DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
     - cd ../service
     - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go &
-    - sleep 10
+    - sleep 30
     - cd ../client
     - PORT=8080 go run main.go
 

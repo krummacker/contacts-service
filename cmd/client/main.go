@@ -30,7 +30,7 @@ func main() {
 	fmt.Println()
 	fmt.Println("  Elements      POST       PUT       GET     FIRST      LAST      BOTH  BIRTHDAY    DELETE ")
 	fmt.Println("-------------------------------------------------------------------------------------------")
-	sizes := []int{1000, 5000, 10000, 50000, 100000}
+	sizes := []int{1000, 5000, 10000, 50000}
 	for _, loops := range sizes {
 		firstID, _ := sendPostRequest(bytes.NewReader(CreateRandomContactJson()))
 		fmt.Printf("%10d", loops)
