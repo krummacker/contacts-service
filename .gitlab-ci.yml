@@ -19,7 +19,10 @@ check_and_perftest:
     - cd cmd/migration
     - DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
     - cd ../service
-    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
+    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go &
+    - sleep 10
+    - cd ../client
+    - PORT=8080 go run main.go
 
 # trivy:
 #   stage: test
