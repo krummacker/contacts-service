@@ -11,7 +11,7 @@ func main() {
 	for {
 		res, err := http.Get("http://localhost:8080/contacts/")
 		if err == nil {
-			if res.StatusCode == http.StatusOK {
+			if res.StatusCode == http.StatusNotFound {
 				fmt.Println(res)
 				break
 			} else {
