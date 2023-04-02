@@ -11,17 +11,14 @@ func main() {
 	for {
 		res, err := http.Get("http://localhost:8080/contacts/")
 		if err == nil {
+			fmt.Printf("Received status code: %d", res.StatusCode)
 			if res.StatusCode == http.StatusNotFound {
-				fmt.Println(res)
+				fmt.Println()
 				break
-			} else {
-				fmt.Println(res)
 			}
-		} else {
-			fmt.Println(err)
 		}
 		totalWaitTime += 5
-		fmt.Printf("Waiting %d seconds", totalWaitTime)
+		fmt.Printf(" - waiting %d more seconds...", totalWaitTime)
 		fmt.Println()
 		time.Sleep(5 * time.Second)
 	}
