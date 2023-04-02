@@ -3,13 +3,24 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 )
 
+// Usage example on the command line:
+// > PORT=8080 go run main.go
 func main() {
+	serverPort, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		fmt.Println("could not parse PORT env variable", err)
+		panic(err)
+	}
+	requestURL := fmt.Sprintf("http://localhost:%d/contacts", serverPort)
 	totalWaitTime := 0
 	for {
-		res, err := http.Get("http://localhost:8080/contacts/")
+
+		res, err := http.Get(requestURL)
 		if err != nil {
 			fmt.Printf("Received error: " + err.Error())
 			fmt.Println()
