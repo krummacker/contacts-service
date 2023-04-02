@@ -7,12 +7,22 @@ import (
 )
 
 func main() {
+	totalWaitTime := 0
 	for {
 		res, err := http.Get("http://localhost:8080/contacts/")
-		if err == nil && res.StatusCode == http.StatusOK {
-			break
+		if err == nil {
+			if res.StatusCode == http.StatusOK {
+				fmt.Println(res)
+				break
+			} else {
+				fmt.Println(res)
+			}
+		} else {
+			fmt.Println(err)
 		}
-		fmt.Println("Waiting 2 seconds")
-		time.Sleep(2 * time.Second)
+		totalWaitTime += 5
+		fmt.Printf("Waiting %d seconds", totalWaitTime)
+		fmt.Println()
+		time.Sleep(5 * time.Second)
 	}
 }
