@@ -20,7 +20,7 @@ check_and_perftest:
     - DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go
     - cd ../service
     # - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" GIN_MODE=release GIN_LOGGING=OFF go run main.go &
-    - PORT=8080 DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go &
+    - PORT=8080 DBHOST=mysql DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go run main.go &
     - cd ../wait-until-available
     - PORT=8080 go run main.go
     - DBHOST=mysql DBUSER=root DBPWD="$MYSQL_ROOT_PASSWORD" go test -v ./internal/integrationtest ./internal/service/
