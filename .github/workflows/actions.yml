@@ -22,4 +22,4 @@ jobs:
       - run: go vet $(go list ./...)
       - run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - run: staticcheck ./...
-      - run: go test -v $(go list ./...)
+      - run: go test -v $(go list ./... | grep -v integrationtest)

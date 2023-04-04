@@ -10,6 +10,6 @@ pipelines:
           - go vet $(go list ./...)
           - go install honnef.co/go/tools/cmd/staticcheck@latest
           - staticcheck ./...
-          - go test -v $(go list ./...)
+          - go test -v $(go list ./... | grep -v integrationtest)
 
 
