@@ -19,7 +19,6 @@ func main() {
 	requestURL := fmt.Sprintf("http://localhost:%d/contacts", serverPort)
 	totalWaitTime := 0
 	for {
-
 		res, err := http.Get(requestURL)
 		if err != nil {
 			fmt.Printf("Received error: " + err.Error())

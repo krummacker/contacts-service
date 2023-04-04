@@ -1,47 +1,43 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
+	"bufio"
+	"flag"
 	"os"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/service"
 )
 
-// CreateDatabase initializes and returns a database connection. The connection parameters are
-// taken from the system's environment variables.
-func CreateDatabase() *sql.DB {
-	dsn := fmt.Sprintf("%s:%s@tcp(mysql)/test?parseTime=true", os.Getenv("DBUSER"), os.Getenv("DBPWD"))
-	sqlDB, err := sql.Open("mysql", dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return sqlDB
-}
-
 // Usage example on the command line:
-// > DBUSER=dirk DBPWD=bullo92 go run main.go
+// > DBHOST=localhost DBUSER=dirk DBPWD=bullo92 go run main.go -file=../../scripts/database.sql
 func main() {
-	sqlDB := CreateDatabase()
+	sqlDB := service.CreateDatabase()
 	db := sqlx.NewDb(sqlDB, "mysql")
 	defer db.Close()
-	db.MustExec(`
-		CREATE TABLE contacts (
-			id          INT AUTO_INCREMENT PRIMARY KEY,
-			firstname   VARCHAR(50),
-			lastname    VARCHAR(50),
-			phone       VARCHAR(50),
-			birthday    DATE
-		)
-	`)
-	db.MustExec(`
-		CREATE INDEX contacts_firstname
-		ON contacts (firstname)
-	`)
-	db.MustExec(`
-		CREATE INDEX contacts_lastname
-		ON contacts (lastname)
-	`)
+
+	filePtr := flag.String("file", "database.sql", "the sql file to execute")
+	flag.Parse()
+
+	readFile, err := os.Open(*filePtr)
+	if err != nil {
+		panic(err)
+	}
+	defer readFile.Close()
+
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+	builder := strings.Builder{}
+	for fileScanner.Scan() {
+		line := fileScanner.Text()
+		builder.WriteString(line)
+		builder.WriteString(" ")
+		if strings.Contains(line, ";") {
+			sql := builder.String()
+			db.MustExec(sql)
+			builder = strings.Builder{}
+		}
+	}
 }
