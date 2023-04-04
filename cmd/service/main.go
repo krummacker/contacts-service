@@ -9,7 +9,7 @@ import (
 )
 
 // Usage example on the command line:
-// > PORT=8080 DBUSER=dirk DBPWD=bullo92 GIN_MODE=release GIN_LOGGING=OFF go run main.go
+// > PORT=8080 DBHOST=localhost DBUSER=dirk DBPWD=bullo92 GIN_MODE=release GIN_LOGGING=OFF go run main.go
 func main() {
 	sqlDB := service.CreateDatabase()
 	service.SetupDatabaseWrapper(sqlDB)
