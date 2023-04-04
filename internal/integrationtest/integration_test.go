@@ -272,6 +272,186 @@ func TestFindAllContacts(t *testing.T) {
 	assert.True(t, found, "could not find contact")
 }
 
+// TestFindAllContactsWithFirstNameStart retrieves all contacts whose first name starts with
+// certain letters and verifies that a previously created contact with a matching first name is
+// among them, and another previously created contact with a non-matching first name is not.
+func TestFindAllContactsWithFirstNameStart(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	matchingPostRecorder := httptest.NewRecorder()
+	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Julius", 
+			"lastname": "Cäsar", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(matchingPostRecorder, matchingPostRequest)
+	assert.Equal(t, http.StatusCreated, matchingPostRecorder.Code)
+	var matchingPostBody map[string]interface{}
+	json.Unmarshal(matchingPostRecorder.Body.Bytes(), &matchingPostBody)
+	matchingId := int64(math.Round(matchingPostBody["id"].(float64)))
+
+	nonMatchingPostRecorder := httptest.NewRecorder()
+	nonMatchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Marc", 
+			"lastname": "Anton", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(nonMatchingPostRecorder, nonMatchingPostRequest)
+	assert.Equal(t, http.StatusCreated, nonMatchingPostRecorder.Code)
+	var nonMatchingPostBody map[string]interface{}
+	json.Unmarshal(nonMatchingPostRecorder.Body.Bytes(), &nonMatchingPostBody)
+	nonMatchingId := int64(math.Round(nonMatchingPostBody["id"].(float64)))
+
+	// test the endpoint for finding all contacts with names that start with "Ju"
+	getRecorder := httptest.NewRecorder()
+	getRequest, _ := http.NewRequest("GET", "/contacts?firstname=Ju", nil)
+	router.ServeHTTP(getRecorder, getRequest)
+	assert.Equal(t, http.StatusOK, getRecorder.Code)
+	var contacts []model.Contact
+	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+	var found bool
+	for _, contact := range contacts {
+		if contact.Id == matchingId {
+			assert.Equal(t, "Julius", *contact.FirstName)
+			assert.Equal(t, "Cäsar", *contact.LastName)
+			assert.Equal(t, "+39 123 456 789", *contact.Phone)
+			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
+			found = true
+		} else if contact.Id == nonMatchingId {
+			assert.Fail(t, "found contact with non-matching name", contact)
+		}
+	}
+	assert.True(t, found, "could not find contact with matching name")
+}
+
+// TestFindAllContactsWithLastNameStart retrieves all contacts whose last name starts with
+// certain letters and verifies that a previously created contact with a matching last name is
+// among them, and another previously created contact with a non-matching first name is not.
+func TestFindAllContactsWithLastNameStart(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	matchingPostRecorder := httptest.NewRecorder()
+	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Julius", 
+			"lastname": "Cäsar", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(matchingPostRecorder, matchingPostRequest)
+	assert.Equal(t, http.StatusCreated, matchingPostRecorder.Code)
+	var matchingPostBody map[string]interface{}
+	json.Unmarshal(matchingPostRecorder.Body.Bytes(), &matchingPostBody)
+	matchingId := int64(math.Round(matchingPostBody["id"].(float64)))
+
+	nonMatchingPostRecorder := httptest.NewRecorder()
+	nonMatchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Marc", 
+			"lastname": "Anton", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(nonMatchingPostRecorder, nonMatchingPostRequest)
+	assert.Equal(t, http.StatusCreated, nonMatchingPostRecorder.Code)
+	var nonMatchingPostBody map[string]interface{}
+	json.Unmarshal(nonMatchingPostRecorder.Body.Bytes(), &nonMatchingPostBody)
+	nonMatchingId := int64(math.Round(nonMatchingPostBody["id"].(float64)))
+
+	// test the endpoint for finding all contacts with names that start with "Cä"
+	getRecorder := httptest.NewRecorder()
+	getRequest, _ := http.NewRequest("GET", "/contacts?lastname=Cä", nil)
+	router.ServeHTTP(getRecorder, getRequest)
+	assert.Equal(t, http.StatusOK, getRecorder.Code)
+	var contacts []model.Contact
+	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+	var found bool
+	for _, contact := range contacts {
+		if contact.Id == matchingId {
+			assert.Equal(t, "Julius", *contact.FirstName)
+			assert.Equal(t, "Cäsar", *contact.LastName)
+			assert.Equal(t, "+39 123 456 789", *contact.Phone)
+			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
+			found = true
+		} else if contact.Id == nonMatchingId {
+			assert.Fail(t, "found contact with non-matching name", contact)
+		}
+	}
+	assert.True(t, found, "could not find contact with matching name")
+}
+
+// TestFindAllContactsWithBirthday retrieves all contacts with a specified birthday. It verifies
+// that a previously created contact with a matching birthday is among them, and another previously
+// created contact with a non-matching birthday is not.
+func TestFindAllContactsWithBirthday(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	matchingPostRecorder := httptest.NewRecorder()
+	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Julius", 
+			"lastname": "Cäsar", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-01T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(matchingPostRecorder, matchingPostRequest)
+	assert.Equal(t, http.StatusCreated, matchingPostRecorder.Code)
+	var matchingPostBody map[string]interface{}
+	json.Unmarshal(matchingPostRecorder.Body.Bytes(), &matchingPostBody)
+	matchingId := int64(math.Round(matchingPostBody["id"].(float64)))
+
+	nonMatchingPostRecorder := httptest.NewRecorder()
+	nonMatchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
+		{
+			"firstname": "Marc", 
+			"lastname": "Anton", 
+			"phone": "+39 123 456 789", 
+			"birthday": "0057-07-02T00:00:00Z"
+		}
+	`))
+	router.ServeHTTP(nonMatchingPostRecorder, nonMatchingPostRequest)
+	assert.Equal(t, http.StatusCreated, nonMatchingPostRecorder.Code)
+	var nonMatchingPostBody map[string]interface{}
+	json.Unmarshal(nonMatchingPostRecorder.Body.Bytes(), &nonMatchingPostBody)
+	nonMatchingId := int64(math.Round(nonMatchingPostBody["id"].(float64)))
+
+	// test the endpoint for finding all contacts with names that start with "Cä"
+	getRecorder := httptest.NewRecorder()
+	getRequest, _ := http.NewRequest("GET", "/contacts?birthday=07-01", nil)
+	router.ServeHTTP(getRecorder, getRequest)
+	assert.Equal(t, http.StatusOK, getRecorder.Code)
+	var contacts []model.Contact
+	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+	var found bool
+	for _, contact := range contacts {
+		if contact.Id == matchingId {
+			assert.Equal(t, "Julius", *contact.FirstName)
+			assert.Equal(t, "Cäsar", *contact.LastName)
+			assert.Equal(t, "+39 123 456 789", *contact.Phone)
+			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
+			found = true
+		} else if contact.Id == nonMatchingId {
+			assert.Fail(t, "found contact with non-matching name", contact)
+		}
+	}
+	assert.True(t, found, "could not find contact with matching name")
+}
+
 // TestFindContactInvalidId tests a GET with an invalid id.
 func TestFindContactInvalidId(t *testing.T) {
 	sqlDB := service.CreateDatabase()
