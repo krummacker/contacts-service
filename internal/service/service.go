@@ -48,7 +48,8 @@ var deleteWhereId *sqlx.Stmt
 // CreateDatabase initializes and returns a database connection. The connection parameters are
 // taken from the system's environment variables.
 func CreateDatabase() *sql.DB {
-	dsn := fmt.Sprintf("%s:%s@tcp(mysql)/test?parseTime=true", os.Getenv("DBUSER"), os.Getenv("DBPWD"))
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?parseTime=true",
+		os.Getenv("DBUSER"), os.Getenv("DBPWD"), os.Getenv("DBHOST"))
 	sqlDB, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal(err)
