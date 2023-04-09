@@ -30,26 +30,6 @@ func createMockObjects(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 // prepared.
 func expectPreparedStatements(mock sqlmock.Sqlmock) {
 	mock.ExpectPrepare(`INSERT INTO contacts`)
-	mock.ExpectPrepare(`SELECT \* FROM contacts`)
-	mock.ExpectPrepare(`
-		SELECT \*
-		FROM contacts
-		WHERE firstname LIKE \?
-		    AND lastname LIKE \?
-	`)
-	mock.ExpectPrepare(`
-		SELECT \* 
-		FROM contacts 
-		WHERE MONTH\(birthday\) = \? AND DAY\(birthday\) = \?
-	`)
-	mock.ExpectPrepare(`
-		SELECT \* 
-		FROM contacts 
-		WHERE firstname LIKE \? 
-			AND lastname LIKE \? 
-			AND MONTH\(birthday\) = \? 
-			AND DAY\(birthday\) = \?
-	`)
 	mock.ExpectPrepare(`SELECT \* FROM contacts WHERE id = \?`)
 	mock.ExpectPrepare(`DELETE FROM contacts WHERE id = \?`)
 }

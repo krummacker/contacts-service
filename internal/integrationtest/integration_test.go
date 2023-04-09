@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/dirk.krummacker/contacts-service/internal/model"
+	"gitlab.com/dirk.krummacker/contacts-service/internal/randomgen"
 	"gitlab.com/dirk.krummacker/contacts-service/internal/service"
 )
 
@@ -195,6 +197,9 @@ func TestUpdateContactInvalidBody(t *testing.T) {
 		router.ServeHTTP(putRecorder, putRequest)
 		assert.Equal(t, http.StatusBadRequest, putRecorder.Code)
 	}
+
+	// clean up after the test
+	deleteContact(t, router, idAsString)
 }
 
 // TestUpdateContactPartially tests a PUT with only one field specified in the JSON. It verifies
@@ -228,6 +233,9 @@ func TestUpdateContactPartially(t *testing.T) {
 	assert.Nil(t, putBody["lastname"])
 	assert.Nil(t, putBody["phone"])
 	assert.Nil(t, putBody["birthday"])
+
+	// clean up after the test
+	deleteContact(t, router, idAsString)
 }
 
 // TestFindAllContacts retrieves all contacts and verifies that a previously created contact is
@@ -270,6 +278,9 @@ func TestFindAllContacts(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "could not find contact")
+
+	// clean up after the test
+	deleteContact(t, router, fmt.Sprintf("%d", idFromPost))
 }
 
 // TestFindAllContactsWithFirstNameStart retrieves all contacts whose first name starts with
@@ -330,6 +341,10 @@ func TestFindAllContactsWithFirstNameStart(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "could not find contact with matching name")
+
+	// clean up after the test
+	deleteContact(t, router, fmt.Sprintf("%d", matchingId))
+	deleteContact(t, router, fmt.Sprintf("%d", nonMatchingId))
 }
 
 // TestFindAllContactsWithLastNameStart retrieves all contacts whose last name starts with
@@ -390,6 +405,10 @@ func TestFindAllContactsWithLastNameStart(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "could not find contact with matching name")
+
+	// clean up after the test
+	deleteContact(t, router, fmt.Sprintf("%d", matchingId))
+	deleteContact(t, router, fmt.Sprintf("%d", nonMatchingId))
 }
 
 // TestFindAllContactsWithBirthday retrieves all contacts with a specified birthday. It verifies
@@ -450,6 +469,10 @@ func TestFindAllContactsWithBirthday(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "could not find contact with matching name")
+
+	// clean up after the test
+	deleteContact(t, router, fmt.Sprintf("%d", matchingId))
+	deleteContact(t, router, fmt.Sprintf("%d", nonMatchingId))
 }
 
 // TestFindContactInvalidId tests a GET with an invalid id.
@@ -474,4 +497,223 @@ func TestDeleteContactInvalidId(t *testing.T) {
 	request, _ := http.NewRequest("DELETE", "/contacts/invalid", nil)
 	router.ServeHTTP(recorder, request)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
+// TestFindContactsOrdered tests the 'orderby' and the 'ascending' URL parameters.
+func TestFindContactsOrdered(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	// using names because they do not contain spaces
+	fakeLastName := randomgen.PickLastName() + "-" + randomgen.PickLastName()
+
+	// create 3 different contacts with the same pseudo-unique last name so that we can narrow the
+	// search to them
+	ids := [3]int64{}
+	{
+		postRecorder := httptest.NewRecorder()
+		contact := fmt.Sprintf(`{
+				"firstname": "Anton", 
+				"lastname": "%s", 
+				"phone": "+420 555 555 555", 
+				"birthday": "2003-07-01T00:00:00Z"
+		}`, fakeLastName)
+		postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(contact))
+		router.ServeHTTP(postRecorder, postRequest)
+		assert.Equal(t, http.StatusCreated, postRecorder.Code)
+		var postBody map[string]interface{}
+		json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+		ids[0] = int64(math.Round(postBody["id"].(float64)))
+	}
+	{
+		postRecorder := httptest.NewRecorder()
+		contact := fmt.Sprintf(`{
+				"firstname": "Zacharias",
+				"lastname": "%s", 
+				"phone": "+420 111 111 111", 
+				"birthday": "1974-07-01T00:00:00Z"
+		}`, fakeLastName)
+		postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(contact))
+		router.ServeHTTP(postRecorder, postRequest)
+		assert.Equal(t, http.StatusCreated, postRecorder.Code)
+		var postBody map[string]interface{}
+		json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+		ids[1] = int64(math.Round(postBody["id"].(float64)))
+	}
+	{
+		postRecorder := httptest.NewRecorder()
+		contact := fmt.Sprintf(`{
+				"firstname": "Michael",
+				"lastname": "%s", 
+				"phone": "+420 999 999 999", 
+				"birthday": "1933-07-01T00:00:00Z"
+		}`, fakeLastName)
+		postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(contact))
+		router.ServeHTTP(postRecorder, postRequest)
+		assert.Equal(t, http.StatusCreated, postRecorder.Code)
+		var postBody map[string]interface{}
+		json.Unmarshal(postRecorder.Body.Bytes(), &postBody)
+		ids[2] = int64(math.Round(postBody["id"].(float64)))
+	}
+
+	// Verify that ascending ordering by id works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=id&ascending=true", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[0], contacts[0].Id)
+		assert.Equal(t, ids[1], contacts[1].Id)
+		assert.Equal(t, ids[2], contacts[2].Id)
+	}
+
+	// Verify that descending ordering by id works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=id&ascending=false", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[2], contacts[0].Id)
+		assert.Equal(t, ids[1], contacts[1].Id)
+		assert.Equal(t, ids[0], contacts[2].Id)
+	}
+
+	// Verify that ascending ordering by first name works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=firstname&ascending=true", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[0], contacts[0].Id)
+		assert.Equal(t, ids[2], contacts[1].Id)
+		assert.Equal(t, ids[1], contacts[2].Id)
+	}
+
+	// Verify that descending ordering by first name works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=firstname&ascending=false", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[1], contacts[0].Id)
+		assert.Equal(t, ids[2], contacts[1].Id)
+		assert.Equal(t, ids[0], contacts[2].Id)
+	}
+
+	// Verify that ascending ordering by phone works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=phone&ascending=true", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[1], contacts[0].Id)
+		assert.Equal(t, ids[0], contacts[1].Id)
+		assert.Equal(t, ids[2], contacts[2].Id)
+	}
+
+	// Verify that descending ordering by phone works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=phone&ascending=false", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[2], contacts[0].Id)
+		assert.Equal(t, ids[0], contacts[1].Id)
+		assert.Equal(t, ids[1], contacts[2].Id)
+	}
+
+	// Verify that ascending ordering by birthday works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=birthday&ascending=true", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[2], contacts[0].Id)
+		assert.Equal(t, ids[1], contacts[1].Id)
+		assert.Equal(t, ids[0], contacts[2].Id)
+	}
+
+	// Verify that descending ordering by birthday works
+	{
+		getRecorder := httptest.NewRecorder()
+		url := fmt.Sprintf("/contacts?lastname=%s&orderby=birthday&ascending=false", fakeLastName)
+		getRequest, _ := http.NewRequest("GET", url, nil)
+		router.ServeHTTP(getRecorder, getRequest)
+		assert.Equal(t, http.StatusOK, getRecorder.Code)
+		var contacts []model.Contact
+		json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
+		assert.Equal(t, 3, len(contacts))
+		assert.Equal(t, ids[0], contacts[0].Id)
+		assert.Equal(t, ids[1], contacts[1].Id)
+		assert.Equal(t, ids[2], contacts[2].Id)
+	}
+
+	// clean up after the test
+	for _, id := range ids {
+		deleteContact(t, router, fmt.Sprintf("%d", id))
+	}
+}
+
+// TestFindContactsInvalidOrderBy tries to find contacts with an invalid value for the 'orderby'
+// URL parameter.
+func TestFindContactsInvalidOrderBy(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("GET", "/contacts?orderby=INVALID", nil)
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+// TestFindContactsInvalidAscending tries to find contacts with an invalid value for the 'ascending'
+// URL parameter.
+func TestFindContactsInvalidAscending(t *testing.T) {
+	sqlDB := service.CreateDatabase()
+	service.SetupDatabaseWrapper(sqlDB)
+	router := service.SetupHttpRouter()
+
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("GET", "/contacts?ascending=INVALID", nil)
+	router.ServeHTTP(recorder, request)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+// deleteContact deletes the contact with the specified id. It can be used for cleaning up after
+// the test.
+func deleteContact(t *testing.T, router *gin.Engine, id string) {
+	deleteRecorder := httptest.NewRecorder()
+	deleteRequest, _ := http.NewRequest("DELETE", fmt.Sprintf("/contacts/%s", id), nil)
+	router.ServeHTTP(deleteRecorder, deleteRequest)
+	assert.Equal(t, http.StatusOK, deleteRecorder.Code)
 }

@@ -24,26 +24,17 @@ var db *sqlx.DB
 // insert is a prepared statement for creating a contact on the database.
 var insert *sqlx.NamedStmt
 
-// selectAll is a prepared statement for selecting all contacts.
-var selectAll *sqlx.Stmt
-
-// selectName is a prepared statement for selecting contacts that have first or last names
-// starting with certain values.
-var selectNames *sqlx.Stmt
-
-// selectBirthday is a prepared statement for selecting contacts that have birthday on a specified
-// day and month.
-var selectBirthday *sqlx.Stmt
-
-// selectNamesAndBirthday is a prepared statement for searching for a combination of names and
-// birthday.
-var selectNamesAndBirthday *sqlx.Stmt
-
 // selectWhereId is a prepared statement for selecting contacts with a given id.
 var selectWhereId *sqlx.Stmt
 
 // deleteWhereId is a prepared statement for deleting a contact with a given id.
 var deleteWhereId *sqlx.Stmt
+
+// allowedOrderby are the allowed values for the 'orderby' URL parameter.
+var allowedOrderby = []string{"id", "firstname", "lastname", "phone", "birthday"}
+
+// allowedAscending are the allowed values for the 'ascending' URL parameter.
+var allowedAscending = []string{"true", "false"}
 
 // CreateDatabase initializes and returns a database connection. The connection parameters are
 // taken from the system's environment variables.
@@ -68,50 +59,6 @@ func SetupDatabaseWrapper(sqlDB *sql.DB) {
 	insert, err = db.PrepareNamed(`
 		INSERT INTO contacts (firstname, lastname, phone, birthday)
 		VALUES (:firstname, :lastname, :phone, :birthday)
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	selectAll, err = db.Preparex(`
-		SELECT * FROM contacts ORDER BY id LIMIT ? OFFSET ?
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	selectNames, err = db.Preparex(`
-		SELECT *
-		FROM contacts
-		WHERE firstname LIKE ?
-			AND lastname LIKE ?
-		ORDER BY id
-		LIMIT ?
-		OFFSET ?
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	selectBirthday, err = db.Preparex(`
-		SELECT *
-		FROM contacts
-		WHERE MONTH(birthday) = ?
-		    AND DAY(birthday) = ?
-		ORDER BY id
-		LIMIT ?
-		OFFSET ?
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	selectNamesAndBirthday, err = db.Preparex(`
-		SELECT *
-		FROM contacts
-		WHERE firstname LIKE ?
-			AND lastname LIKE ?
-			AND MONTH(birthday) = ?
-			AND DAY(birthday) = ?
-		ORDER BY id
-		LIMIT ?
-		OFFSET ?
 	`)
 	if err != nil {
 		log.Fatal(err)
@@ -147,8 +94,7 @@ func SetupHttpRouter() *gin.Engine {
 	return router
 }
 
-// findContacts responds with a list of contacts as JSON. It supports URL parameters that can
-// filter based on their value. The list is sorted ascending by ID.
+// findContacts responds with a list of contacts as JSON.
 //
 // The URL parameters 'firstname' and 'lastname' are interpreted as the beginning of the first name
 // or last name of the contact.
@@ -160,13 +106,22 @@ func SetupHttpRouter() *gin.Engine {
 // The URL parameter 'offset' specifies how many items from the sorted list of results are skipped
 // in the beginning. Together with the 'limit' parameter, one can implement search result paging.
 //
+// The URL parameter 'orderby' specifies the contact property by which the results shall be sorted.
+// Valid values are 'id', 'firstname', 'lastname', 'phone', and 'birthday'. If this URL parameter
+// is not specified, the contacts will be sorted by id.
+//
+// If the URL parameter 'ascending' is set to 'false' then the sort order is reversed, starting
+// with the 'highest' value. If it is set to 'true', or if this URL parameter is omitted, the
+// result starts with the lowest value.
+//
 // REST API calls:
 //
 //	> curl "http://localhost:8080/contacts"
-//	> curl "http://localhost:8080/contacts?limit=20&offset=60"
 //	> curl "http://localhost:8080/contacts?firstname=Ji"
 //	> curl "http://localhost:8080/contacts?lastname=Smi"
 //	> curl "http://localhost:8080/contacts?birthday=11-29"
+//	> curl "http://localhost:8080/contacts?limit=20&offset=60"
+//	> curl "http://localhost:8080/contacts?orderby=birthday&ascending=false"
 func findContacts(c *gin.Context) {
 	first, last, bday, bmonth, successNameAndBirthday := parseNameAndBirthday(c)
 	if !successNameAndBirthday {
@@ -176,16 +131,52 @@ func findContacts(c *gin.Context) {
 	if !successLimitAndOffset {
 		return
 	}
+	orderby, ascending, successOrderbyAndAscending := parseOrderbyAndAscending(c)
+	if !successOrderbyAndAscending {
+		return
+	}
 	var contacts []model.Contact
 	var err error
 	if (first != "" || last != "") && (bmonth != 0 || bday != 0) {
-		err = selectNamesAndBirthday.Select(&contacts, first+"%", last+"%", bmonth, bday, limit, offset)
+		sql := fmt.Sprintf(`
+			SELECT *
+			FROM contacts
+			WHERE firstname LIKE ?
+				AND lastname LIKE ?
+				AND MONTH(birthday) = ?
+				AND DAY(birthday) = ?
+			ORDER BY %s %s
+			LIMIT ?
+			OFFSET ?`, orderby, ascending)
+		err = db.Select(&contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
 	} else if (first != "" || last != "") && bmonth == 0 && bday == 0 {
-		err = selectNames.Select(&contacts, first+"%", last+"%", limit, offset)
+		sql := fmt.Sprintf(`
+			SELECT *
+			FROM contacts
+			WHERE firstname LIKE ?
+				AND lastname LIKE ?
+			ORDER BY %s %s
+			LIMIT ?
+			OFFSET ?`, orderby, ascending)
+		err = db.Select(&contacts, sql, first+"%", last+"%", limit, offset)
 	} else if first == "" && last == "" && (bmonth != 0 || bday != 0) {
-		err = selectBirthday.Select(&contacts, bmonth, bday, limit, offset)
+		sql := fmt.Sprintf(`
+			SELECT *
+			FROM contacts
+			WHERE MONTH(birthday) = ?
+				AND DAY(birthday) = ?
+			ORDER BY %s %s
+			LIMIT ?
+			OFFSET ?`, orderby, ascending)
+		err = db.Select(&contacts, sql, bmonth, bday, limit, offset)
 	} else {
-		err = selectAll.Select(&contacts, limit, offset)
+		sql := fmt.Sprintf(`
+			SELECT *
+			FROM contacts
+			ORDER BY %s %s
+			LIMIT ?
+			OFFSET ?`, orderby, ascending)
+		err = db.Select(&contacts, sql, limit, offset)
 	}
 	if err != nil {
 		log.Panicln(err)
@@ -248,6 +239,43 @@ func parseLimitAndOffset(c *gin.Context) (limit string, offset string, success b
 		offset = "0"
 	}
 	return limit, offset, true
+}
+
+// parseOrderbyAndAscending inspects the URL parameters and determines values for the orderby and
+// ascending values of the result set.
+func parseOrderbyAndAscending(c *gin.Context) (orderby string, ascending string, success bool) {
+	orderby = c.Query("orderby")
+	if orderby == "" {
+		orderby = "id"
+	}
+	if !contains(allowedOrderby, orderby) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid orderby parameter"})
+		return "", "", false
+	}
+	ascendingAsString := c.Query("ascending")
+	if ascendingAsString == "" {
+		ascendingAsString = "true"
+	}
+	if !contains(allowedAscending, ascendingAsString) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid ascending parameter"})
+		return orderby, "", false
+	}
+	if ascendingAsString == "true" {
+		ascending = "ASC"
+	} else {
+		ascending = "DESC"
+	}
+	return orderby, ascending, true
+}
+
+// contains returns true if a string is present in a slice.
+func contains(slice []string, str string) bool {
+	for _, v := range slice {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 // createContact inserts the contact specified in the request's JSON into the database. It responds
