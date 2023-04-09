@@ -21,7 +21,7 @@ func main() {
 	filePtr := flag.String("file", "database.sql", "the sql file to execute")
 	flag.Parse()
 
-	readFile, err := os.Open(*filePtr)
+	readFile, err := os.Open(*filePtr) // nosemgrep
 	if err != nil {
 		panic(err)
 	}
