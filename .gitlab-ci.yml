@@ -32,5 +32,3 @@ trivy:
 include:
   - template: Jobs/SAST.gitlab-ci.yml
   - template: Jobs/Secret-Detection.gitlab-ci.yml
-
-# dummy commit to trigger the dependency scan
