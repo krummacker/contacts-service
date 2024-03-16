@@ -1,6 +1,6 @@
 module gitlab.com/dirk.krummacker/contacts-service
 
-go 1.20
+go 1.22
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
