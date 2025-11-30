@@ -21,7 +21,7 @@ func main() {
 	for {
 		res, err := http.Get(requestURL) // nosemgrep
 		if err != nil {
-			fmt.Printf("Received error: " + err.Error())
+			fmt.Printf("Received error: %s", err.Error())
 			fmt.Println()
 		} else {
 			fmt.Printf("Received status code: %d", res.StatusCode)
