@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS contacts;
+
 CREATE TABLE contacts (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     firstname   VARCHAR(50),

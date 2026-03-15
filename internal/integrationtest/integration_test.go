@@ -330,13 +330,14 @@ func TestFindAllContactsWithFirstNameStart(t *testing.T) {
 	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
 	var found bool
 	for _, contact := range contacts {
-		if contact.Id == matchingId {
+		switch contact.Id {
+		case matchingId:
 			assert.Equal(t, "Julius", *contact.FirstName)
 			assert.Equal(t, "Cäsar", *contact.LastName)
 			assert.Equal(t, "+39 123 456 789", *contact.Phone)
 			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
 			found = true
-		} else if contact.Id == nonMatchingId {
+		case nonMatchingId:
 			assert.Fail(t, "found contact with non-matching name", contact)
 		}
 	}
@@ -394,13 +395,14 @@ func TestFindAllContactsWithLastNameStart(t *testing.T) {
 	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
 	var found bool
 	for _, contact := range contacts {
-		if contact.Id == matchingId {
+		switch contact.Id {
+		case matchingId:
 			assert.Equal(t, "Julius", *contact.FirstName)
 			assert.Equal(t, "Cäsar", *contact.LastName)
 			assert.Equal(t, "+39 123 456 789", *contact.Phone)
 			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
 			found = true
-		} else if contact.Id == nonMatchingId {
+		case nonMatchingId:
 			assert.Fail(t, "found contact with non-matching name", contact)
 		}
 	}
@@ -458,13 +460,14 @@ func TestFindAllContactsWithBirthday(t *testing.T) {
 	json.Unmarshal(getRecorder.Body.Bytes(), &contacts)
 	var found bool
 	for _, contact := range contacts {
-		if contact.Id == matchingId {
+		switch contact.Id {
+		case matchingId:
 			assert.Equal(t, "Julius", *contact.FirstName)
 			assert.Equal(t, "Cäsar", *contact.LastName)
 			assert.Equal(t, "+39 123 456 789", *contact.Phone)
 			assert.Equal(t, time.Date(57, time.July, 1, 0, 0, 0, 0, time.UTC), *contact.Birthday)
 			found = true
-		} else if contact.Id == nonMatchingId {
+		case nonMatchingId:
 			assert.Fail(t, "found contact with non-matching name", contact)
 		}
 	}
