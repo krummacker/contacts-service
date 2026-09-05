@@ -40,4 +40,7 @@ func main() {
 			builder = strings.Builder{}
 		}
 	}
+	if err := fileScanner.Err(); err != nil {
+		panic(err)
+	}
 }
