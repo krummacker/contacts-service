@@ -38,11 +38,43 @@ var allowedOrderby = []string{"id", "firstname", "lastname", "phone", "birthday"
 // allowedAscending are the allowed values for the 'ascending' URL parameter.
 var allowedAscending = []string{"true", "false"}
 
+// DBConfig contains the required environment configuration for the database connection.
+type DBConfig struct {
+	User string
+	Pass string
+	Host string
+}
+
+// LoadDBConfig loads and validates required database configuration from the environment.
+func LoadDBConfig() (DBConfig, error) {
+	cfg := DBConfig{
+		User: os.Getenv("DBUSER"),
+		Pass: os.Getenv("DBPWD"),
+		Host: os.Getenv("DBHOST"),
+	}
+
+	if cfg.User == "" {
+		return DBConfig{}, fmt.Errorf("DBUSER is required")
+	}
+	if cfg.Pass == "" {
+		return DBConfig{}, fmt.Errorf("DBPWD is required")
+	}
+	if cfg.Host == "" {
+		return DBConfig{}, fmt.Errorf("DBHOST is required")
+	}
+	return cfg, nil
+}
+
 // CreateDatabase initializes and returns a database connection. The connection parameters are
 // taken from the system's environment variables.
 func CreateDatabase() *sql.DB {
+	cfg, err := LoadDBConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?parseTime=true",
-		os.Getenv("DBUSER"), os.Getenv("DBPWD"), os.Getenv("DBHOST"))
+		cfg.User, cfg.Pass, cfg.Host)
 	sqlDB, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal(err)
