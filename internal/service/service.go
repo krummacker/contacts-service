@@ -18,17 +18,19 @@ import (
 // maxInt is the largest possible int value
 const maxInt = int(^uint(0) >> 1)
 
-// db is a handle to the database.
-var db *sqlx.DB
+// ContactService encapsulates the database connection and prepared statements for the contacts API.
+type ContactService struct {
 
-// insert is a prepared statement for creating a contact on the database.
-var insert *sqlx.NamedStmt
+	// db is a handle to the database.
+	db *sqlx.DB
 
-// selectWhereId is a prepared statement for selecting contacts with a given id.
-var selectWhereId *sqlx.Stmt
-
-// deleteWhereId is a prepared statement for deleting a contact with a given id.
-var deleteWhereId *sqlx.Stmt
+	// insert is a prepared statement for creating a contact on the database.
+	insert *sqlx.NamedStmt
+	// selectWhereId is a prepared statement for selecting contacts with a given id.
+	selectWhereId *sqlx.Stmt
+	// deleteWhereId is a prepared statement for deleting contacts with a given id.
+	deleteWhereId *sqlx.Stmt
+}
 
 // allowedOrderby are the allowed values for the 'orderby' URL parameter.
 var allowedOrderby = []string{"id", "firstname", "lastname", "phone", "birthday"}
@@ -48,37 +50,37 @@ func CreateDatabase() *sql.DB {
 	return sqlDB
 }
 
-// SetupDatabaseWrapper initializes the sqlx database wrapper with the specified sql database. It
-// then prepares all statements. The database argument can be a real database for production use
-// or a mock database within unit tests.
-func SetupDatabaseWrapper(sqlDB *sql.DB) {
-	var err error
-	db = sqlx.NewDb(sqlDB, "mysql")
+// NewService initializes the sqlx database wrapper with the specified sql database. It then
+// prepares all statements used by the contacts API.
+func NewService(sqlDB *sql.DB) (*ContactService, error) {
+	db := sqlx.NewDb(sqlDB, "mysql")
+	service := &ContactService{db: db}
 
-	// Prepared statements offer a significant speed increase if executed many times.
-	insert, err = db.PrepareNamed(`
+	var err error
+	service.insert, err = db.PrepareNamed(`
 		INSERT INTO contacts (firstname, lastname, phone, birthday)
 		VALUES (:firstname, :lastname, :phone, :birthday)
 	`)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	selectWhereId, err = db.Preparex(`
+	service.selectWhereId, err = db.Preparex(`
 		SELECT * FROM contacts WHERE id = ?
 	`)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	deleteWhereId, err = db.Preparex(`
+	service.deleteWhereId, err = db.Preparex(`
 		DELETE FROM contacts WHERE id = ?
 	`)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+	return service, nil
 }
 
 // SetupHttpRouter initializes the REST API router and registers all endpoints.
-func SetupHttpRouter() *gin.Engine {
+func (s *ContactService) SetupHttpRouter() *gin.Engine {
 	var router *gin.Engine
 	if strings.EqualFold(os.Getenv("GIN_LOGGING"), "off") {
 		fmt.Println("Turning off HTTP request logging.")
@@ -86,11 +88,11 @@ func SetupHttpRouter() *gin.Engine {
 	} else {
 		router = gin.Default()
 	}
-	router.GET("/contacts", findContacts)
-	router.POST("/contacts", createContact)
-	router.GET("/contacts/:id", findContactByID)
-	router.PUT("/contacts/:id", updateContactByID)
-	router.DELETE("/contacts/:id", deleteContactByID)
+	router.GET("/contacts", s.findContacts)
+	router.POST("/contacts", s.createContact)
+	router.GET("/contacts/:id", s.findContactByID)
+	router.PUT("/contacts/:id", s.updateContactByID)
+	router.DELETE("/contacts/:id", s.deleteContactByID)
 	return router
 }
 
@@ -122,7 +124,7 @@ func SetupHttpRouter() *gin.Engine {
 //	> curl "http://localhost:8080/contacts?birthday=11-29"
 //	> curl "http://localhost:8080/contacts?limit=20&offset=60"
 //	> curl "http://localhost:8080/contacts?orderby=birthday&ascending=false"
-func findContacts(c *gin.Context) {
+func (s *ContactService) findContacts(c *gin.Context) {
 	first, last, bday, bmonth, successNameAndBirthday := parseNameAndBirthday(c)
 	if !successNameAndBirthday {
 		return
@@ -148,7 +150,7 @@ func findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = db.Select(&contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
+		err = s.db.Select(&contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
 	} else if (first != "" || last != "") && bmonth == 0 && bday == 0 {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -158,7 +160,7 @@ func findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = db.Select(&contacts, sql, first+"%", last+"%", limit, offset)
+		err = s.db.Select(&contacts, sql, first+"%", last+"%", limit, offset)
 	} else if first == "" && last == "" && (bmonth != 0 || bday != 0) {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -168,7 +170,7 @@ func findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = db.Select(&contacts, sql, bmonth, bday, limit, offset)
+		err = s.db.Select(&contacts, sql, bmonth, bday, limit, offset)
 	} else {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -176,7 +178,7 @@ func findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = db.Select(&contacts, sql, limit, offset)
+		err = s.db.Select(&contacts, sql, limit, offset)
 	}
 	if err != nil {
 		log.Printf("findContacts failed: %v", err)
@@ -290,13 +292,13 @@ func contains(slice []string, str string) bool {
 // Example REST API call:
 //
 //	> curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"firstname": "Hans", "lastname": "Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
-func createContact(c *gin.Context) {
+func (s *ContactService) createContact(c *gin.Context) {
 	var newContact model.Contact
 	if err := c.BindJSON(&newContact); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
 		return
 	}
-	result, err := insert.Exec(&newContact)
+	result, err := s.insert.Exec(&newContact)
 	if err != nil {
 		log.Printf("createContact failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -318,7 +320,7 @@ func createContact(c *gin.Context) {
 // Example REST API call:
 //
 //	> curl http://localhost:8080/contacts/56
-func findContactByID(c *gin.Context) {
+func (s *ContactService) findContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
 	if errConv != nil {
@@ -327,7 +329,7 @@ func findContactByID(c *gin.Context) {
 	}
 
 	var contacts []model.Contact
-	err := selectWhereId.Select(&contacts, id)
+	err := s.selectWhereId.Select(&contacts, id)
 	if err != nil {
 		log.Printf("findContactByID failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -348,7 +350,7 @@ func findContactByID(c *gin.Context) {
 //
 //	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"phone": "81970"}'
 //	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
-func updateContactByID(c *gin.Context) {
+func (s *ContactService) updateContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
 	if errConv != nil {
@@ -390,7 +392,7 @@ func updateContactByID(c *gin.Context) {
 	sql = sql[:len(sql)-2]
 	sql += " WHERE id=?"
 	args = append(args, id)
-	result, errExec := db.Exec(sql, args...)
+	result, errExec := s.db.Exec(sql, args...)
 	if errExec != nil {
 		log.Printf("updateContactByID failed: %v", errExec)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -409,7 +411,7 @@ func updateContactByID(c *gin.Context) {
 
 	// In the HTTP response, return the full contact after the update.
 	var contacts []model.Contact
-	errSelect := selectWhereId.Select(&contacts, id)
+	errSelect := s.selectWhereId.Select(&contacts, id)
 	if errSelect != nil {
 		log.Printf("updateContactByID select after update failed: %v", errSelect)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -428,7 +430,7 @@ func updateContactByID(c *gin.Context) {
 // Example REST API call:
 //
 //	> curl http://localhost:8080/contacts/56 --request "DELETE"
-func deleteContactByID(c *gin.Context) {
+func (s *ContactService) deleteContactByID(c *gin.Context) {
 	id := c.Param("id")
 	_, error := strconv.Atoi(id)
 	if error != nil {
@@ -436,7 +438,7 @@ func deleteContactByID(c *gin.Context) {
 		return
 	}
 
-	result, err := deleteWhereId.Exec(id)
+	result, err := s.deleteWhereId.Exec(id)
 	if err != nil {
 		log.Printf("deleteContactByID failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})

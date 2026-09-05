@@ -20,8 +20,11 @@ import (
 // TestContactHappyPath tests a POST, GET, PUT, and DELETE with valid data.
 func TestContactHappyPath(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	// test the endpoint for creating a contact
 	postRecorder := httptest.NewRecorder()
@@ -117,8 +120,11 @@ func TestCreateContactInvalidBody(t *testing.T) {
 	}
 
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 	for _, body := range invalidRequestBodies {
 		recorder := httptest.NewRecorder()
 		request, _ := http.NewRequest("POST", "/contacts", strings.NewReader(body))
@@ -131,8 +137,11 @@ func TestCreateContactInvalidBody(t *testing.T) {
 // fields having nil/null values.
 func TestCreateContactEmptyJSON(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
@@ -149,8 +158,11 @@ func TestCreateContactEmptyJSON(t *testing.T) {
 // TestUpdateContactInvalidId tests a PUT with an invalid id.
 func TestUpdateContactInvalidId(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("PUT", "/contacts/invalid", strings.NewReader(`
@@ -168,8 +180,11 @@ func TestUpdateContactInvalidId(t *testing.T) {
 // TestUpdateContactInvalidBody tests a PUT with a valid id but an invalid request body.
 func TestUpdateContactInvalidBody(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	postRecorder := httptest.NewRecorder()
 	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
@@ -206,8 +221,11 @@ func TestUpdateContactInvalidBody(t *testing.T) {
 // that the other fields are still nil.
 func TestUpdateContactPartially(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	postRecorder := httptest.NewRecorder()
 	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader("{}"))
@@ -242,8 +260,11 @@ func TestUpdateContactPartially(t *testing.T) {
 // among them.
 func TestFindAllContacts(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	postRecorder := httptest.NewRecorder()
 	postRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
@@ -288,8 +309,11 @@ func TestFindAllContacts(t *testing.T) {
 // among them, and another previously created contact with a non-matching first name is not.
 func TestFindAllContactsWithFirstNameStart(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	matchingPostRecorder := httptest.NewRecorder()
 	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
@@ -353,8 +377,11 @@ func TestFindAllContactsWithFirstNameStart(t *testing.T) {
 // among them, and another previously created contact with a non-matching first name is not.
 func TestFindAllContactsWithLastNameStart(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	matchingPostRecorder := httptest.NewRecorder()
 	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
@@ -418,8 +445,11 @@ func TestFindAllContactsWithLastNameStart(t *testing.T) {
 // created contact with a non-matching birthday is not.
 func TestFindAllContactsWithBirthday(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	matchingPostRecorder := httptest.NewRecorder()
 	matchingPostRequest, _ := http.NewRequest("POST", "/contacts", strings.NewReader(`
@@ -481,8 +511,11 @@ func TestFindAllContactsWithBirthday(t *testing.T) {
 // TestFindContactInvalidId tests a GET with an invalid id.
 func TestFindContactInvalidId(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("GET", "/contacts/invalid", nil)
@@ -493,8 +526,11 @@ func TestFindContactInvalidId(t *testing.T) {
 // TestDeleteContactInvalidId tests a DELETE with an invalid id.
 func TestDeleteContactInvalidId(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("DELETE", "/contacts/invalid", nil)
@@ -505,8 +541,11 @@ func TestDeleteContactInvalidId(t *testing.T) {
 // TestFindContactsOrdered tests the 'orderby' and the 'ascending' URL parameters.
 func TestFindContactsOrdered(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	// using names because they do not contain spaces
 	fakeLastName := randomgen.PickLastName() + "-" + randomgen.PickLastName()
@@ -690,8 +729,11 @@ func TestFindContactsOrdered(t *testing.T) {
 // URL parameter.
 func TestFindContactsInvalidOrderBy(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("GET", "/contacts?orderby=INVALID", nil)
@@ -703,8 +745,11 @@ func TestFindContactsInvalidOrderBy(t *testing.T) {
 // URL parameter.
 func TestFindContactsInvalidAscending(t *testing.T) {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := contactService.SetupHttpRouter()
 
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("GET", "/contacts?ascending=INVALID", nil)

@@ -48,9 +48,12 @@ func expectSingleRowSelect(mock sqlmock.Sqlmock, id int, firstname string, lastn
 // initializeContactsService sets up the contacts service with the mock database and returns a
 // handle to the gin engine against which requests can be executed.
 func initializeContactsService(db *sql.DB) *gin.Engine {
-	SetupDatabaseWrapper(db)
+	contactService, err := NewService(db)
+	if err != nil {
+		panic(err)
+	}
 	gin.SetMode(gin.ReleaseMode)
-	return SetupHttpRouter()
+	return contactService.SetupHttpRouter()
 }
 
 // runTest executes the HTTP request with the specified arguments and returns the response.

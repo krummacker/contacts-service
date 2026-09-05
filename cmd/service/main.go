@@ -12,9 +12,13 @@ import (
 // > PORT=8080 DBHOST=localhost DBUSER=dirk DBPWD=bullo92 GIN_MODE=release GIN_LOGGING=OFF go run main.go
 func main() {
 	sqlDB := service.CreateDatabase()
-	service.SetupDatabaseWrapper(sqlDB)
-	router := service.SetupHttpRouter()
-	_, err := strconv.Atoi(os.Getenv("PORT"))
+	contactService, err := service.NewService(sqlDB)
+	if err != nil {
+		fmt.Println("could not initialize service", err)
+		panic(err)
+	}
+	router := contactService.SetupHttpRouter()
+	_, err = strconv.Atoi(os.Getenv("PORT"))
 	if err != nil {
 		fmt.Println("could not parse PORT env variable", err)
 		panic(err)
