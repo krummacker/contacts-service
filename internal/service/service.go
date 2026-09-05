@@ -179,7 +179,9 @@ func findContacts(c *gin.Context) {
 		err = db.Select(&contacts, sql, limit, offset)
 	}
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("findContacts failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	if len(contacts) == 0 {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
@@ -296,11 +298,15 @@ func createContact(c *gin.Context) {
 	}
 	result, err := insert.Exec(&newContact)
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("createContact failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("createContact last insert id failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	newContact.Id = id
 	c.IndentedJSON(http.StatusCreated, newContact)
@@ -323,7 +329,9 @@ func findContactByID(c *gin.Context) {
 	var contacts []model.Contact
 	err := selectWhereId.Select(&contacts, id)
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("findContactByID failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	if len(contacts) == 0 {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
@@ -382,10 +390,17 @@ func updateContactByID(c *gin.Context) {
 	sql = sql[:len(sql)-2]
 	sql += " WHERE id=?"
 	args = append(args, id)
-	result := db.MustExec(sql, args...)
+	result, errExec := db.Exec(sql, args...)
+	if errExec != nil {
+		log.Printf("updateContactByID failed: %v", errExec)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
+	}
 	rowsAffected, errRows := result.RowsAffected()
 	if errRows != nil {
-		log.Panicln(errRows)
+		log.Printf("updateContactByID rows affected failed: %v", errRows)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	if rowsAffected == 0 {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
@@ -396,7 +411,9 @@ func updateContactByID(c *gin.Context) {
 	var contacts []model.Contact
 	errSelect := selectWhereId.Select(&contacts, id)
 	if errSelect != nil {
-		log.Panicln(errRows)
+		log.Printf("updateContactByID select after update failed: %v", errSelect)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	if len(contacts) == 0 {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "contact not found"})
@@ -421,11 +438,15 @@ func deleteContactByID(c *gin.Context) {
 
 	result, err := deleteWhereId.Exec(id)
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("deleteContactByID failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		log.Panicln(err)
+		log.Printf("deleteContactByID rows affected failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
+		return
 	}
 	if rowsAffected == 1 {
 		c.IndentedJSON(http.StatusOK, gin.H{"message": "contact deleted"})

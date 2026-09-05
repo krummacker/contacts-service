@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -670,6 +671,27 @@ func TestDeleteInvalidCharacterID(t *testing.T) {
 	// Run test and compare results
 	recorder := runTest(db, "DELETE", "/contacts/INVALID", nil)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// TestGetAllDatabaseErrorReturns500 is AI generated.
+func TestGetAllDatabaseErrorReturns500(t *testing.T) {
+	db, mock := createMockObjects(t)
+	defer db.Close()
+
+	expectPreparedStatements(mock)
+	mock.ExpectQuery("SELECT \\* FROM contacts").
+		WillReturnError(errors.New("db unavailable"))
+
+	var recorder *httptest.ResponseRecorder
+	assert.NotPanics(t, func() {
+		recorder = runTest(db, "GET", "/contacts", nil)
+	})
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "internal server error")
+
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
