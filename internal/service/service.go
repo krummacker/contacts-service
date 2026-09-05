@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -40,17 +42,27 @@ var allowedAscending = []string{"true", "false"}
 
 // DBConfig contains the required environment configuration for the database connection.
 type DBConfig struct {
-	User string
-	Pass string
-	Host string
+	User    string
+	Pass    string
+	Host    string
+	Timeout time.Duration
 }
 
 // LoadDBConfig loads and validates required database configuration from the environment.
 func LoadDBConfig() (DBConfig, error) {
 	cfg := DBConfig{
-		User: os.Getenv("DBUSER"),
-		Pass: os.Getenv("DBPWD"),
-		Host: os.Getenv("DBHOST"),
+		User:    os.Getenv("DBUSER"),
+		Pass:    os.Getenv("DBPWD"),
+		Host:    os.Getenv("DBHOST"),
+		Timeout: 5 * time.Second,
+	}
+
+	if timeoutRaw := os.Getenv("DB_TIMEOUT"); timeoutRaw != "" {
+		timeout, err := time.ParseDuration(timeoutRaw)
+		if err != nil {
+			return DBConfig{}, fmt.Errorf("DB_TIMEOUT must be a valid duration like 5s, 2m: %w", err)
+		}
+		cfg.Timeout = timeout
 	}
 
 	if cfg.User == "" {
@@ -61,6 +73,9 @@ func LoadDBConfig() (DBConfig, error) {
 	}
 	if cfg.Host == "" {
 		return DBConfig{}, fmt.Errorf("DBHOST is required")
+	}
+	if cfg.Timeout <= 0 {
+		return DBConfig{}, fmt.Errorf("DB_TIMEOUT must be greater than zero")
 	}
 	return cfg, nil
 }
@@ -73,10 +88,13 @@ func CreateDatabase() *sql.DB {
 		log.Fatal(err)
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?parseTime=true",
-		cfg.User, cfg.Pass, cfg.Host)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/test?parseTime=true&timeout=%s",
+		cfg.User, cfg.Pass, cfg.Host, cfg.Timeout.String())
 	sqlDB, err := sql.Open("mysql", dsn)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err = sqlDB.Ping(); err != nil {
 		log.Fatal(err)
 	}
 	return sqlDB
@@ -157,6 +175,9 @@ func (s *ContactService) SetupHttpRouter() *gin.Engine {
 //	> curl "http://localhost:8080/contacts?limit=20&offset=60"
 //	> curl "http://localhost:8080/contacts?orderby=birthday&ascending=false"
 func (s *ContactService) findContacts(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
 	first, last, bday, bmonth, successNameAndBirthday := parseNameAndBirthday(c)
 	if !successNameAndBirthday {
 		return
@@ -182,7 +203,7 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = s.db.Select(&contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
+		err = s.db.SelectContext(ctx, &contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
 	} else if (first != "" || last != "") && bmonth == 0 && bday == 0 {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -192,7 +213,7 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = s.db.Select(&contacts, sql, first+"%", last+"%", limit, offset)
+		err = s.db.SelectContext(ctx, &contacts, sql, first+"%", last+"%", limit, offset)
 	} else if first == "" && last == "" && (bmonth != 0 || bday != 0) {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -202,7 +223,7 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = s.db.Select(&contacts, sql, bmonth, bday, limit, offset)
+		err = s.db.SelectContext(ctx, &contacts, sql, bmonth, bday, limit, offset)
 	} else {
 		sql := fmt.Sprintf(`
 			SELECT *
@@ -210,7 +231,7 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			ORDER BY %s %s
 			LIMIT ?
 			OFFSET ?`, orderby, ascending)
-		err = s.db.Select(&contacts, sql, limit, offset)
+		err = s.db.SelectContext(ctx, &contacts, sql, limit, offset)
 	}
 	if err != nil {
 		log.Printf("findContacts failed: %v", err)
@@ -325,12 +346,15 @@ func contains(slice []string, str string) bool {
 //
 //	> curl http://localhost:8080/contacts --request "POST" --include --header "Content-Type: application/json" --data '{"firstname": "Hans", "lastname": "Wurst", "phone": "0815", "birthday": "1969-03-02T00:00:00+00:00"}'
 func (s *ContactService) createContact(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
 	var newContact model.Contact
 	if err := c.BindJSON(&newContact); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON"})
 		return
 	}
-	result, err := s.insert.Exec(&newContact)
+	result, err := s.insert.ExecContext(ctx, &newContact)
 	if err != nil {
 		log.Printf("createContact failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -353,6 +377,9 @@ func (s *ContactService) createContact(c *gin.Context) {
 //
 //	> curl http://localhost:8080/contacts/56
 func (s *ContactService) findContactByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
 	if errConv != nil {
@@ -361,7 +388,7 @@ func (s *ContactService) findContactByID(c *gin.Context) {
 	}
 
 	var contacts []model.Contact
-	err := s.selectWhereId.Select(&contacts, id)
+	err := s.selectWhereId.SelectContext(ctx, &contacts, id)
 	if err != nil {
 		log.Printf("findContactByID failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -383,6 +410,9 @@ func (s *ContactService) findContactByID(c *gin.Context) {
 //	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"phone": "81970"}'
 //	> curl http://localhost:8080/contacts/56 --request "PUT" --include --header "Content-Type: application/json" --data '{"birthday": "1972-06-06T00:00:00+00:00"}'
 func (s *ContactService) updateContactByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
 	id := c.Param("id")
 	_, errConv := strconv.Atoi(id)
 	if errConv != nil {
@@ -424,7 +454,7 @@ func (s *ContactService) updateContactByID(c *gin.Context) {
 	sql = sql[:len(sql)-2]
 	sql += " WHERE id=?"
 	args = append(args, id)
-	result, errExec := s.db.Exec(sql, args...)
+	result, errExec := s.db.ExecContext(ctx, sql, args...)
 	if errExec != nil {
 		log.Printf("updateContactByID failed: %v", errExec)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -443,7 +473,7 @@ func (s *ContactService) updateContactByID(c *gin.Context) {
 
 	// In the HTTP response, return the full contact after the update.
 	var contacts []model.Contact
-	errSelect := s.selectWhereId.Select(&contacts, id)
+	errSelect := s.selectWhereId.SelectContext(ctx, &contacts, id)
 	if errSelect != nil {
 		log.Printf("updateContactByID select after update failed: %v", errSelect)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})
@@ -463,6 +493,9 @@ func (s *ContactService) updateContactByID(c *gin.Context) {
 //
 //	> curl http://localhost:8080/contacts/56 --request "DELETE"
 func (s *ContactService) deleteContactByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
 	id := c.Param("id")
 	_, error := strconv.Atoi(id)
 	if error != nil {
@@ -470,7 +503,7 @@ func (s *ContactService) deleteContactByID(c *gin.Context) {
 		return
 	}
 
-	result, err := s.deleteWhereId.Exec(id)
+	result, err := s.deleteWhereId.ExecContext(ctx, id)
 	if err != nil {
 		log.Printf("deleteContactByID failed: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "internal server error"})

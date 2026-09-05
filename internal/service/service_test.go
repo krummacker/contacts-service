@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -698,4 +699,42 @@ func TestGetAllDatabaseErrorReturns500(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
+}
+
+func TestLoadDBConfigDefaultsTimeout(t *testing.T) {
+	oldUser, hadUser := os.LookupEnv("DBUSER")
+	oldPass, hadPass := os.LookupEnv("DBPWD")
+	oldHost, hadHost := os.LookupEnv("DBHOST")
+	oldTimeout, hadTimeout := os.LookupEnv("DB_TIMEOUT")
+	defer func() {
+		if hadUser {
+			os.Setenv("DBUSER", oldUser)
+		} else {
+			os.Unsetenv("DBUSER")
+		}
+		if hadPass {
+			os.Setenv("DBPWD", oldPass)
+		} else {
+			os.Unsetenv("DBPWD")
+		}
+		if hadHost {
+			os.Setenv("DBHOST", oldHost)
+		} else {
+			os.Unsetenv("DBHOST")
+		}
+		if hadTimeout {
+			os.Setenv("DB_TIMEOUT", oldTimeout)
+		} else {
+			os.Unsetenv("DB_TIMEOUT")
+		}
+	}()
+
+	os.Setenv("DBUSER", "root")
+	os.Setenv("DBPWD", "secret")
+	os.Setenv("DBHOST", "localhost")
+	os.Unsetenv("DB_TIMEOUT")
+
+	cfg, err := LoadDBConfig()
+	assert.NoError(t, err)
+	assert.Equal(t, 5*time.Second, cfg.Timeout)
 }
