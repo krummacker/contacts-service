@@ -190,6 +190,11 @@ func (s *ContactService) findContacts(c *gin.Context) {
 	if !successOrderbyAndAscending {
 		return
 	}
+	orderClause, ok := orderByClause(orderby, ascending)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid orderby parameter"})
+		return
+	}
 	var contacts []model.Contact
 	var err error
 	if (first != "" || last != "") && (bmonth != 0 || bday != 0) {
@@ -200,9 +205,9 @@ func (s *ContactService) findContacts(c *gin.Context) {
 				AND lastname LIKE ?
 				AND MONTH(birthday) = ?
 				AND DAY(birthday) = ?
-			ORDER BY %s %s
+			ORDER BY %s
 			LIMIT ?
-			OFFSET ?`, orderby, ascending)
+			OFFSET ?`, orderClause)
 		err = s.db.SelectContext(ctx, &contacts, sql, first+"%", last+"%", bmonth, bday, limit, offset)
 	} else if (first != "" || last != "") && bmonth == 0 && bday == 0 {
 		sql := fmt.Sprintf(`
@@ -210,9 +215,9 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			FROM contacts
 			WHERE firstname LIKE ?
 				AND lastname LIKE ?
-			ORDER BY %s %s
+			ORDER BY %s
 			LIMIT ?
-			OFFSET ?`, orderby, ascending)
+			OFFSET ?`, orderClause)
 		err = s.db.SelectContext(ctx, &contacts, sql, first+"%", last+"%", limit, offset)
 	} else if first == "" && last == "" && (bmonth != 0 || bday != 0) {
 		sql := fmt.Sprintf(`
@@ -220,17 +225,17 @@ func (s *ContactService) findContacts(c *gin.Context) {
 			FROM contacts
 			WHERE MONTH(birthday) = ?
 				AND DAY(birthday) = ?
-			ORDER BY %s %s
+			ORDER BY %s
 			LIMIT ?
-			OFFSET ?`, orderby, ascending)
+			OFFSET ?`, orderClause)
 		err = s.db.SelectContext(ctx, &contacts, sql, bmonth, bday, limit, offset)
 	} else {
 		sql := fmt.Sprintf(`
 			SELECT *
 			FROM contacts
-			ORDER BY %s %s
+			ORDER BY %s
 			LIMIT ?
-			OFFSET ?`, orderby, ascending)
+			OFFSET ?`, orderClause)
 		err = s.db.SelectContext(ctx, &contacts, sql, limit, offset)
 	}
 	if err != nil {
@@ -298,6 +303,29 @@ func parseLimitAndOffset(c *gin.Context) (limit string, offset string, success b
 	return limit, offset, true
 }
 
+// orderByClause converts the validated orderby and ascending parameters into a safe ORDER BY SQL
+// fragment. It deliberately allows only known columns and directions.
+func orderByClause(orderby string, ascending string) (string, bool) {
+	columnMap := map[string]string{
+		"id":        "id",
+		"firstname": "firstname",
+		"lastname":  "lastname",
+		"phone":     "phone",
+		"birthday":  "birthday",
+	}
+	column, ok := columnMap[orderby]
+	if !ok {
+		return "", false
+	}
+	sortDir := "ASC"
+	if ascending == "false" {
+		sortDir = "DESC"
+	} else if ascending != "true" {
+		return "", false
+	}
+	return column + " " + sortDir, true
+}
+
 // parseOrderbyAndAscending inspects the URL parameters and determines values for the orderby and
 // ascending values of the result set.
 func parseOrderbyAndAscending(c *gin.Context) (orderby string, ascending string, success bool) {
@@ -318,9 +346,9 @@ func parseOrderbyAndAscending(c *gin.Context) (orderby string, ascending string,
 		return orderby, "", false
 	}
 	if ascendingAsString == "true" {
-		ascending = "ASC"
+		ascending = "true"
 	} else {
-		ascending = "DESC"
+		ascending = "false"
 	}
 	return orderby, ascending, true
 }

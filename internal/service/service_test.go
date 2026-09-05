@@ -738,3 +738,15 @@ func TestLoadDBConfigDefaultsTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 5*time.Second, cfg.Timeout)
 }
+
+func TestOrderByClauseUsesSafeMapping(t *testing.T) {
+	clause, ok := orderByClause("firstname", "false")
+	assert.True(t, ok)
+	assert.Equal(t, "firstname DESC", clause)
+
+	_, ok = orderByClause("firstname; DROP TABLE contacts", "false")
+	assert.False(t, ok)
+
+	_, ok = orderByClause("firstname", "maybe")
+	assert.False(t, ok)
+}
