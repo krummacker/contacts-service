@@ -1,5 +1,6 @@
 stages:
   - test
+  - build
 
 golang_tests:
   stage: test
@@ -27,6 +28,34 @@ trivy:
   script:
     - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .
     - ./trivy fs .
+
+build_and_push_image:
+  stage: build
+  image: docker:27.5.1-cli
+  services:
+    - name: docker:27.5.1-dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - apk add --no-cache aws-cli
+    - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+    - export IMAGE_NAME="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+    - aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_DEFAULT_REGION" >/dev/null 2>&1 || aws ecr create-repository --repository-name "$ECR_REPOSITORY" --region "$AWS_DEFAULT_REGION" >/dev/null
+    - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  script:
+    - docker build --pull -t "${IMAGE_NAME}:${CI_COMMIT_SHA}" .
+    - docker push "${IMAGE_NAME}:${CI_COMMIT_SHA}"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "${IMAGE_NAME}:${CI_COMMIT_SHA}" "${IMAGE_NAME}:latest"
+        docker push "${IMAGE_NAME}:latest"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
 
 # jobs run in test stage
 include:
