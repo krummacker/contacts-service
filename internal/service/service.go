@@ -273,6 +273,11 @@ func parseNameAndBirthday(c *gin.Context) (firstname string, lastname string, bd
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
 			return "", "", 0, 0, false
 		}
+		birthdayDate := time.Date(2000, time.Month(bmonth), bday, 0, 0, 0, 0, time.UTC)
+		if birthdayDate.Month() != time.Month(bmonth) || birthdayDate.Day() != bday {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid birthday URL parameter"})
+			return "", "", 0, 0, false
+		}
 	}
 	return firstname, lastname, bday, bmonth, true
 }

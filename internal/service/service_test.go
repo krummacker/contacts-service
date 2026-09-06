@@ -291,6 +291,23 @@ func TestGetByBirthdayInvalidMonth(t *testing.T) {
 	}
 }
 
+func TestGetByBirthdayInvalidNumericValue(t *testing.T) {
+	for _, birthday := range []string{"13-01", "00-01", "02-00", "02-30"} {
+		t.Run(birthday, func(t *testing.T) {
+			db, mock := createMockObjects(t)
+			defer db.Close()
+
+			expectPreparedStatements(mock)
+
+			recorder := runTest(db, "GET", "/contacts?birthday="+birthday, nil)
+			assert.Equal(t, http.StatusBadRequest, recorder.Code)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
 // TestGet executes a GET request for a single contact with a valid ID. It expects that the JSON
 // for the contact is returned.
 func TestGet(t *testing.T) {
